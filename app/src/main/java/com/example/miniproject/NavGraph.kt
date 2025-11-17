@@ -1,9 +1,11 @@
 package com.example.miniproject
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -16,10 +18,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.miniproject.LoginScreen.LoginPage
-import com.example.miniproject.LoginScreen.SignUpPage
-import com.example.miniproject.UserScreen.MainPage
-import com.example.miniproject.UserScreen.ProfilePage
+import com.example.miniproject.admin.AdminLogin
 import com.example.miniproject.ui.theme.BackgroundWhite
 import com.example.miniproject.ui.theme.PrimaryBlue
 import com.example.miniproject.ui.theme.TextSecondary
@@ -52,6 +51,10 @@ fun AppNavigation() {
 
         composable("profile"){
             ProfilePage(navController)
+        }
+        //----admin------
+        composable ("admin login"){
+            AdminLogin(navController)
         }
     }
 }

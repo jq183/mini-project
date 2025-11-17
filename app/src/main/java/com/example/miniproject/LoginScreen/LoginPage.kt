@@ -1,6 +1,5 @@
-package com.example.miniproject.LoginScreen
+package com.example.miniproject
 
-import android.app.Activity
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -45,7 +44,6 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.miniproject.R
 import com.example.miniproject.ui.theme.*
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -89,7 +87,7 @@ fun LoginPage(navController: NavController) {
         Log.d("GoogleSignIn", "Result received: resultCode=${result.resultCode}")
         isLoading = false
 
-        if (result.resultCode == Activity.RESULT_OK) {
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
             Log.d("GoogleSignIn", "Result OK, processing...")
             val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             try {
@@ -114,6 +112,7 @@ fun LoginPage(navController: NavController) {
                                     .addOnSuccessListener { snapshot ->
                                         if (snapshot.exists()) {
                                             Toast.makeText(context, "Welcome back!", Toast.LENGTH_SHORT).show()
+                                            // TODO: 跳转到主页
                                         } else {
                                             Toast.makeText(context, "Please complete your profile", Toast.LENGTH_SHORT).show()
                                             shouldNavigateToSignUp = true
@@ -148,7 +147,7 @@ fun LoginPage(navController: NavController) {
                 }
                 Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
             }
-        } else if (result.resultCode == Activity.RESULT_CANCELED) {
+        } else if (result.resultCode == android.app.Activity.RESULT_CANCELED) {
             Log.d("GoogleSignIn", "User cancelled sign in")
             Toast.makeText(context, "Sign in cancelled", Toast.LENGTH_SHORT).show()
         }
@@ -332,7 +331,7 @@ fun LoginPage(navController: NavController) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextButton(
-                onClick = { /*  */ },
+                onClick = { /* 访客登录 */ },
                 colors = ButtonDefaults.textButtonColors(
                     contentColor = PrimaryBlue
                 )
@@ -353,7 +352,7 @@ fun LoginPage(navController: NavController) {
             )
 
             TextButton(
-                onClick = { /**/ },
+                onClick = { navController.navigate("admin login") },
                 colors = ButtonDefaults.textButtonColors(
                     contentColor = PrimaryBlue
                 )

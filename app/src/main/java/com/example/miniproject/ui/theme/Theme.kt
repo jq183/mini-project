@@ -3,7 +3,7 @@ package com.example.miniproject.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // Primary Colors
-val PrimaryBlue = Color(0xFF64B5F6)
+val PrimaryBlue = Color(0xFF87CEEB)
 val PrimaryBlueLight = Color(0xFF9BE7FF)
 val PrimaryBlueDark = Color(0xFF2286C3)
 
