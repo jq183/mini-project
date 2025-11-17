@@ -1,7 +1,7 @@
 package com.example.miniproject.repository
 
 import android.content.Context
-import com.example.miniproject.User
+import com.example.miniproject.UserScreen.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 

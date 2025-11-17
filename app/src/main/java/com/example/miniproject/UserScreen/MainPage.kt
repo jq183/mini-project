@@ -1,4 +1,4 @@
-package com.example.miniproject
+package com.example.miniproject.UserScreen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -21,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.miniproject.BottomNavigationBar
 import com.example.miniproject.ui.theme.*
 
 // 项目数据类
@@ -43,7 +43,6 @@ fun MainPage(navController: NavController) {
     var selectedSort by remember { mutableStateOf("Newest") }
     var showFilterSheet by remember { mutableStateOf(false) }
 
-    // 临时状态 - 在 sheet 里用
     var tempCategory by remember { mutableStateOf(selectedCategory) }
     var tempSort by remember { mutableStateOf(selectedSort) }
 
@@ -171,7 +170,6 @@ fun MainPage(navController: NavController) {
                 .background(BackgroundGray)
                 .padding(paddingValues)
         ) {
-            // Search Bar + Filter
             item {
                 Row(
                     modifier = Modifier
@@ -220,7 +218,6 @@ fun MainPage(navController: NavController) {
                 }
             }
 
-            // Category Tabs
             item {
                 LazyRow(
                     modifier = Modifier
@@ -273,14 +270,12 @@ fun MainPage(navController: NavController) {
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Bottom Padding
             item {
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
 
-    // Bottom Sheet - RadioButton 版本
     if (showFilterSheet) {
         ModalBottomSheet(
             onDismissRequest = {
@@ -341,7 +336,6 @@ fun MainPage(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Category Section
                 Text(
                     "Category",
                     fontSize = 16.sp,
@@ -351,7 +345,6 @@ fun MainPage(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Category RadioButtons - 一排两个
                 categories.chunked(2).forEach { rowCategories ->
                     Row(
                         modifier = Modifier
@@ -400,8 +393,6 @@ fun MainPage(navController: NavController) {
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
-
-// Sort Options - 一排两个
                 sortOptions.chunked(2).forEach { rowOptions ->
                     Row(
                         modifier = Modifier

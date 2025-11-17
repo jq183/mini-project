@@ -1,4 +1,4 @@
-package com.example.miniproject
+package com.example.miniproject.UserScreen
 
 data class User(
     val userId: String = "",
