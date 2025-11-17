@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -61,8 +62,10 @@ fun LoginPage(navController: NavController) {
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
-    var shouldNavigateToSignUp by remember { mutableStateOf(false) }
+    var navSignUp by remember { mutableStateOf(false) }
 
+    var showForgotPwDialog by remember { mutableStateOf(false) }
+    var emailReset by remember { mutableStateOf("") }
     var displayedText by remember { mutableStateOf("") }
     val fullText = "FundSpark"
 
@@ -70,12 +73,12 @@ fun LoginPage(navController: NavController) {
     val auth = FirebaseAuth.getInstance()
     val database = FirebaseDatabase.getInstance().reference
 
-    LaunchedEffect(shouldNavigateToSignUp) {
-        if (shouldNavigateToSignUp) {
+    LaunchedEffect(navSignUp) {
+        if (navSignUp) {
             Log.d("GoogleSignIn", "LaunchedEffect triggered - navigating to signUp")
             try {
                 navController.navigate("signUp")
-                shouldNavigateToSignUp = false
+                navSignUp = false
                 Log.d("GoogleSignIn", "Navigation executed successfully")
             } catch (e: Exception) {
                 Log.e("GoogleSignIn", "Navigation failed in LaunchedEffect", e)
@@ -116,13 +119,13 @@ fun LoginPage(navController: NavController) {
                                             Toast.makeText(context, "Welcome back!", Toast.LENGTH_SHORT).show()
                                         } else {
                                             Toast.makeText(context, "Please complete your profile", Toast.LENGTH_SHORT).show()
-                                            shouldNavigateToSignUp = true
+                                            navSignUp = true
                                         }
                                     }
                                     .addOnFailureListener { e ->
                                         Log.e("GoogleSignIn", "Database check failed", e)
                                         Toast.makeText(context, "Database error: ${e.message}", Toast.LENGTH_LONG).show()
-                                        shouldNavigateToSignUp = true
+                                        navSignUp = true
                                     }
                             } else {
                                 Log.e("GoogleSignIn", "Firebase auth failed", authTask.exception)
@@ -221,7 +224,8 @@ fun LoginPage(navController: NavController) {
         )
 
         TextButton(
-            onClick = { /* 忘记密码 */ },
+            onClick = { emailReset = email
+                      showForgotPwDialog = true},
             modifier = Modifier
                 .align(Alignment.End)
                 .padding(bottom = 4.dp),
@@ -248,7 +252,6 @@ fun LoginPage(navController: NavController) {
                             isLoading = false
                             if (task.isSuccessful) {
                                navController.navigate("mainPage")
-                                // 跳转到主页
                             } else {
                                 Toast.makeText(context, "Login failed: ${task.exception?.message}", Toast.LENGTH_LONG).show()
                             }
@@ -332,7 +335,7 @@ fun LoginPage(navController: NavController) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextButton(
-                onClick = { /*  */ },
+                onClick = { navController.navigate("mainPage") },
                 colors = ButtonDefaults.textButtonColors(
                     contentColor = PrimaryBlue
                 )
@@ -365,6 +368,10 @@ fun LoginPage(navController: NavController) {
                     textDecoration = TextDecoration.Underline
                 )
             }
+        }
+
+        if (showForgotPwDialog){
+            navController.navigate("resetPw")
         }
     }
 }

@@ -22,18 +22,23 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.miniproject.BottomNavigationBar
 import com.example.miniproject.ui.theme.*
+import java.security.Timestamp
+import com.example.miniproject.repository.ProjectRepository
 
-// 项目数据类
 data class Project(
-    val id: String,
-    val title: String,
-    val creator: String,
-    val category: String,
-    val currentAmount: Double,
-    val goalAmount: Double,
-    val daysLeft: Int,
-    val description: String,
-    val backers : Int
+    val id: String = "",
+    val title: String = "",
+    val description: String = "",
+    val category: String = "",
+    val creatorName: String = "",
+    val creatorId: String = "",
+    val currentAmount: Double = 0.0,
+    val goalAmount: Double = 0.0,
+    val backers: Int = 0,
+    val daysLeft: Int = 0,
+    val imageUrl: String = "",
+    val status: String = "active",
+    val createdAt: Timestamp? = null
 )
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,76 +51,31 @@ fun MainPage(navController: NavController) {
     var tempCategory by remember { mutableStateOf(selectedCategory) }
     var tempSort by remember { mutableStateOf(selectedSort) }
 
+    var projects by remember {mutableStateOf<List<Project>>(emptyList())}
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true  // 改这里！直接完全展开
+        skipPartiallyExpanded = true
     )
 
+    val repository = remember { ProjectRepository() }
     val currentRoute = navController.currentBackStackEntry?.destination?.route
     val categories = listOf("All", "Technology", "Charity", "Education", "Medical", "Art", "Games")
     val sortOptions = listOf("Most funded", "Newest", "Ending soon", "Popular")
 
-    // 示例项目数据
-    val projects = remember {
-        listOf(
-            Project(
-                id = "1",
-                title = "Smart Home Automation System",
-                creator = "John Tech",
-                category = "Technology",
-                currentAmount = 7000.0,
-                goalAmount = 10000.0,
-                daysLeft = 15,
-                description = "Revolutionary home automation system",
-                backers = 142
-            ),
-            Project(
-                id = "2",
-                title = "Clean Water Initiative",
-                creator = "Sarah Hope",
-                category = "Charity",
-                currentAmount = 2400.0,
-                goalAmount = 3000.0,
-                daysLeft = 8,
-                description = "Providing clean water to rural communities",
-                backers = 89
-            ),
-            Project(
-                id = "3",
-                title = "Online Learning Platform",
-                creator = "Mike Edu",
-                category = "Education",
-                currentAmount = 5500.0,
-                goalAmount = 8000.0,
-                daysLeft = 22,
-                description = "Free education for everyone",
-                backers = 203
-            ),
-            Project(
-                id = "4",
-                title = "Medical Equipment for Rural Clinic",
-                creator = "Dr. Lisa",
-                category = "Medical",
-                currentAmount = 12000.0,
-                goalAmount = 15000.0,
-                daysLeft = 10,
-                description = "Essential medical equipment for remote areas",
-                backers = 267
-            ),
-            Project(
-                id = "5",
-                title = "Indie Game Development",
-                creator = "GameDev Studio",
-                category = "Games",
-                currentAmount = 3200.0,
-                goalAmount = 5000.0,
-                daysLeft = 30,
-                description = "An exciting new adventure game",
-                backers = 78
-            )
+
+    LaunchedEffect(Unit) {
+        repository.getAllProjects(
+            onSuccess = { proj ->
+                projects = proj
+                isLoading = false
+            },
+            onError = { exception ->
+                errorMessage = exception.message
+                isLoading = false
+            }
         )
     }
-
-    // 根据分类和排序筛选项目
     val filteredProjects = remember(selectedCategory, selectedSort, projects) {
         var filtered = if (selectedCategory == "All") {
             projects
@@ -144,7 +104,7 @@ fun MainPage(navController: NavController) {
                     )
                 },
                 actions = {
-                    IconButton(onClick = { /* 通知功能 */ }) {
+                    IconButton(onClick = { /*  */ }) {
                         Icon(
                             imageVector = Icons.Default.History,
                             contentDescription = "History",
@@ -259,7 +219,6 @@ fun MainPage(navController: NavController) {
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // Project Cards
             items(filteredProjects) { project ->
                 ProjectCard(
                     project = project,
@@ -620,7 +579,7 @@ fun ProjectCard(
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = project.creator,
+                            text = project.creatorName,
                             fontSize = 13.sp,
                             color = TextSecondary
                         )

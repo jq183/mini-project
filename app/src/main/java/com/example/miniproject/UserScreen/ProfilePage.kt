@@ -176,7 +176,7 @@ fun ProfilePage(navController: NavController) {
                         Divider(color = BorderGray, modifier = Modifier.padding(horizontal = 16.dp))
 
                         ProfileMenuItem(
-                            icon = Icons.Default.CreditCard,  // 新增
+                            icon = Icons.Default.CreditCard,
                             title = "Payment Method",
                             onClick = { /* TODO */ }
                         )
@@ -210,7 +210,6 @@ fun ProfilePage(navController: NavController) {
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
-            // Logout Button
             item {
                 Card(
                     modifier = Modifier

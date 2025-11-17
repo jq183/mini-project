@@ -16,6 +16,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.miniproject.LoginScreen.ResetPwPage
 import com.example.miniproject.LoginScreen.LoginPage
 import com.example.miniproject.LoginScreen.SignUpPage
 import com.example.miniproject.UserScreen.MainPage
@@ -52,6 +53,10 @@ fun AppNavigation() {
 
         composable("profile"){
             ProfilePage(navController)
+        }
+
+        composable("resetPw"){
+            ResetPwPage(navController)
         }
     }
 }
