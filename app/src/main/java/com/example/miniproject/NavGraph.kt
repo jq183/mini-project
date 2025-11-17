@@ -18,6 +18,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.miniproject.admin.AdminLogin
 import com.example.miniproject.ui.theme.BackgroundWhite
 import com.example.miniproject.ui.theme.PrimaryBlue
 import com.example.miniproject.ui.theme.TextSecondary
@@ -50,6 +51,10 @@ fun AppNavigation() {
 
         composable("profile"){
             ProfilePage(navController)
+        }
+        //----admin------
+        composable ("admin login"){
+            AdminLogin(navController)
         }
     }
 }

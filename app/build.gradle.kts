@@ -63,10 +63,9 @@ dependencies {
 
     implementation("androidx.compose.material:material-icons-extended:1.5.4")
 
-    // Firebase - 只保留这些！
-    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))  // 更新版本
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-analytics-ktx")
-    implementation("com.google.firebase:firebase-auth-ktx")  // 只要这个就够了！
+    implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-database:20.3.1")
     implementation("com.google.android.gms:play-services-auth:20.7.0")

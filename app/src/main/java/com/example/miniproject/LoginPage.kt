@@ -352,7 +352,7 @@ fun LoginPage(navController: NavController) {
             )
 
             TextButton(
-                onClick = { /* Admin 登录 */ },
+                onClick = { navController.navigate("admin login") },
                 colors = ButtonDefaults.textButtonColors(
                     contentColor = PrimaryBlue
                 )
