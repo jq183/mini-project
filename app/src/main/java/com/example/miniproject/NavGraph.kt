@@ -69,8 +69,17 @@ fun AppNavigation() {
             composable("admin login") {
                 AdminLogin(navController)
             }
+        //----admin------
+        composable("admin login") {
+            AdminLogin(navController)
         }
+
+        composable ("adminMainPage"){
+
+        }
+
     }
+}
 @Composable
 fun BottomNavigationBar(
     navController: NavController,
