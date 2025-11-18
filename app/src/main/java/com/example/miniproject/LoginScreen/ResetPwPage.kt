@@ -99,8 +99,8 @@ fun ResetPwPage(navController: NavController) {
                     onValueChange = { email = it
                                     invalidEmail = when {
                                         it.isEmpty() -> ""
-                                        !it.contains("@") -> "Invalid email format"
-                                        !it.contains(".") -> "Invalid email format"
+                                        !it.contains("@") -> "Please enter a valid email address"
+                                        !it.contains(".") -> "Please enter a valid email address"
                                         else -> ""
                                     }
                                     },
@@ -127,7 +127,7 @@ fun ResetPwPage(navController: NavController) {
                     onClick = {
                         when {
                             email.isEmpty() -> {
-                                invalidEmail = "Please enter your email"
+                                invalidEmail = "Please enter a valid email address"
                                 return@Button
                             }
                             !email.contains("@") || !email.contains(".") -> {

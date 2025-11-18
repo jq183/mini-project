@@ -22,9 +22,13 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.miniproject.BottomNavigationBar
 import com.example.miniproject.ui.theme.*
-import java.security.Timestamp
+import com.google.firebase.Timestamp
 import com.example.miniproject.repository.ProjectRepository
-
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 data class Project(
     val id: String = "",
     val title: String = "",
@@ -38,7 +42,10 @@ data class Project(
     val daysLeft: Int = 0,
     val imageUrl: String = "",
     val status: String = "active",
-    val createdAt: Timestamp? = null
+    val createdAt: Timestamp? = null,
+    val isOfficial: Boolean = false,
+    val isWarning: Boolean = false,
+    val isComplete: Boolean = false
 )
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -421,6 +428,11 @@ fun ProjectCard(
     project: Project,
     onClick: () -> Unit
 ) {
+    LaunchedEffect(project.id) {
+        println("Project: ${project.title}")
+        println("isWarning: ${project.isWarning}")
+        println("isOfficial: ${project.isOfficial}")
+    }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -470,19 +482,31 @@ fun ProjectCard(
                 )
             }
 
-            // Project Info
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
                 // Title
-                Text(
-                    text = project.title,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row (verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()){
+                    Text(
+                        text = project.title,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    if (project.isOfficial){
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.Default.Verified,
+                            contentDescription = "Verified",
+                            modifier = Modifier.size(20.dp),
+                            tint = PrimaryBlue
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -592,6 +616,34 @@ fun ProjectCard(
                             text = project.category,
                             fontSize = 13.sp,
                             color = PrimaryBlue,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                if (project.isWarning) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                WarningOrange.copy(alpha = 0.1f),
+                                RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "Warning",
+                            modifier = Modifier.size(16.dp),
+                            tint = WarningOrange
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "This project may contain suspicious content",
+                            fontSize = 12.sp,
+                            color = WarningOrange,
                             fontWeight = FontWeight.Medium
                         )
                     }

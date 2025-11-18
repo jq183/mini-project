@@ -16,37 +16,6 @@ class ProjectRepository {
         return "P$yearMonth$random"
     }
 
-    fun createProject(
-        project: Project,
-        onSuccess: (String) -> Unit,
-        onError: (Exception) -> Unit
-    ) {
-        val projectId = generateProjectId()
-
-        val projectData = hashMapOf(
-            "title" to project.title,
-            "description" to project.description,
-            "category" to project.category,
-            "creatorName" to project.creatorName,
-            "creatorId" to project.creatorId,
-            "currentAmount" to project.currentAmount,
-            "goalAmount" to project.goalAmount,
-            "backers" to project.backers,
-            "daysLeft" to project.daysLeft,
-            "imageUrl" to project.imageUrl,
-            "status" to "active",
-            "createdAt" to Timestamp.now()
-        )
-
-        projectsRef
-            .document(projectId)
-            .set(projectData)
-            .addOnSuccessListener {
-                onSuccess(projectId)
-            }
-            .addOnFailureListener(onError)
-    }
-
     fun getAllProjects(
         onSuccess: (List<Project>) -> Unit,
         onError: (Exception) -> Unit
@@ -56,25 +25,33 @@ class ProjectRepository {
             .get()
             .addOnSuccessListener { snapshot ->
                 val projects = snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(Project::class.java)?.copy(id = doc.id)
+                    try {
+                        Project(
+                            id = doc.id,
+                            title = doc.getString("title") ?: "",
+                            description = doc.getString("description") ?: "",
+                            category = doc.getString("category") ?: "",
+                            creatorName = doc.getString("creatorName") ?: "",
+                            creatorId = doc.getString("creatorId") ?: "",
+                            currentAmount = doc.getDouble("currentAmount") ?: 0.0,
+                            goalAmount = doc.getDouble("goalAmount") ?: 0.0,
+                            backers = doc.getLong("backers")?.toInt() ?: 0,
+                            daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
+                            imageUrl = doc.getString("imageUrl") ?: "",
+                            status = doc.getString("status") ?: "active",
+                            createdAt = doc.getTimestamp("createdAt"),
+                            isOfficial = doc.getBoolean("isOfficial") ?: false,
+                            isWarning = doc.getBoolean("isWarning") ?: false,
+                            isComplete = doc.getBoolean("isComplete") ?: false
+                        )
+                    } catch (e: Exception) {
+                        println("Error mapping project ${doc.id}: ${e.message}")
+                        null
+                    }
                 }
                 onSuccess(projects)
             }
             .addOnFailureListener(onError)
     }
 
-    fun getProjectId(
-        projectId: String,
-        onSuccess: (Project?) -> Unit,
-        onError: (Exception) -> Unit
-    ) {
-        projectsRef
-            .document(projectId)
-            .get()
-            .addOnSuccessListener { doc ->
-                val project = doc.toObject(Project::class.java)?.copy(id = doc.id)
-                onSuccess(project)
-            }
-            .addOnFailureListener(onError)
-    }
 }
