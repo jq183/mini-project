@@ -21,6 +21,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.miniproject.LoginScreen.ResetPwPage
 import com.example.miniproject.LoginScreen.SignUpPage
 import com.example.miniproject.UserScreen.MainPage
+import com.example.miniproject.UserScreen.MyProjectsPage
 import com.example.miniproject.UserScreen.ProfilePage
 import com.example.miniproject.admin.AdminLogin
 import com.example.miniproject.ui.theme.BackgroundWhite
@@ -59,6 +60,10 @@ fun AppNavigation() {
 
         composable("resetPw") {
             ResetPwPage(navController)
+        }
+
+        composable  ("myProject"){
+            MyProjectsPage(navController)
         }
             //----admin------
             composable("admin login") {
@@ -110,10 +115,10 @@ fun BottomNavigationBar(
                 )
             },
             label = { Text("My Projects") },
-            selected = currentRoute == "myProjects",
+            selected = currentRoute == "myProject",
             onClick = {
-                if (currentRoute != "myProjects") {
-                    navController.navigate("myProjects")
+                if (currentRoute != "myProject") {
+                    navController.navigate("myProject")
                 }
             },
             colors = NavigationBarItemDefaults.colors(
@@ -125,7 +130,6 @@ fun BottomNavigationBar(
             )
         )
 
-        // Profile
         NavigationBarItem(
             icon = {
                 Icon(

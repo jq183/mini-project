@@ -1,9 +1,16 @@
 package com.example.miniproject.repository
 
 import android.content.Context
-import com.example.miniproject.UserScreen.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
+
+data class User(
+    val userId: String = "",
+    val email: String = "",
+    val phone: String = "",
+    val userType: String = "user", // "user" 或 "admin"
+    val createdAt: Long = System.currentTimeMillis()
+)
 
 class AuthRepository {
     private val auth = FirebaseAuth.getInstance()

@@ -2,6 +2,7 @@ package com.example.miniproject.UserScreen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -14,7 +15,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -29,6 +32,7 @@ import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
 data class Project(
     val id: String = "",
     val title: String = "",
@@ -83,11 +87,20 @@ fun MainPage(navController: NavController) {
             }
         )
     }
-    val filteredProjects = remember(selectedCategory, selectedSort, projects) {
-        var filtered = if (selectedCategory == "All") {
-            projects
-        } else {
-            projects.filter { it.category == selectedCategory }
+    val filteredProjects = remember(selectedCategory, selectedSort, projects,searchQuery) {
+        var filtered = projects
+
+        if (searchQuery.isNotEmpty()){
+            filtered =filtered.filter { project ->
+                project.title.contains(searchQuery, ignoreCase = true) ||
+                project.description.contains(searchQuery, ignoreCase = true) ||
+                project.creatorName.contains(searchQuery, ignoreCase = true) ||
+                project.category.contains(searchQuery, ignoreCase = true)
+            }
+        }
+
+        if(selectedCategory !="All"){
+            filtered = filtered.filter { it.category == selectedCategory }
         }
 
         when (selectedSort) {
@@ -229,6 +242,7 @@ fun MainPage(navController: NavController) {
             items(filteredProjects) { project ->
                 ProjectCard(
                     project = project,
+                    searchQuery,
                     onClick = {
                         navController.navigate("projectDetail/${project.id}")
                     }
@@ -426,8 +440,10 @@ fun MainPage(navController: NavController) {
 @Composable
 fun ProjectCard(
     project: Project,
+    searchQuery: String,
     onClick: () -> Unit
 ) {
+    var showCertifiedTips by remember { mutableStateOf(false) }
     LaunchedEffect(project.id) {
         println("Project: ${project.title}")
         println("isWarning: ${project.isWarning}")
@@ -443,7 +459,6 @@ fun ProjectCard(
         colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
     ) {
         Column {
-            // Project Image Placeholder
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -488,11 +503,20 @@ fun ProjectCard(
                 // Title
                 Row (verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()){
-                    Text(
+                    HighlightSearchText(
                         text = project.title,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
+                        highlight = searchQuery,
+                        normalStyle = TextStyle(
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        ),
+                        highlightStyle = TextStyle(
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = BackgroundWhite,
+                            background = PrimaryBlue
+                        ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -506,15 +530,49 @@ fun ProjectCard(
                             tint = PrimaryBlue
                         )
                     }
+                    if (showCertifiedTips) {
+                        Box(
+                            modifier = Modifier
+                                .offset(y = 28.dp, x = (-70).dp)
+                                .width(160.dp)
+                                .background(
+                                    TextPrimary.copy(alpha = 0.9f),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    showCertifiedTips = false
+                                }
+                        ) {
+                            Text(
+                                text = "Certified by FundSpark",
+                                fontSize = 11.sp,
+                                color = BackgroundWhite,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Description
-                Text(
+                HighlightSearchText(
                     text = project.description,
-                    fontSize = 13.sp,
-                    color = TextSecondary,
+                    highlight = searchQuery,
+                    normalStyle = TextStyle(
+                        fontSize = 13.sp,
+                        color = TextSecondary
+                    ),
+                    highlightStyle = TextStyle(
+                        fontSize = 13.sp,
+                        color = TextPrimary,
+                        background = WarningOrange.copy(alpha = 0.3f),
+                        fontWeight = FontWeight.Bold
+                    ),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -602,10 +660,21 @@ fun ProjectCard(
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
+                        HighlightSearchText(
                             text = project.creatorName,
-                            fontSize = 13.sp,
-                            color = TextSecondary
+                            highlight = searchQuery,
+                            normalStyle = TextStyle(
+                                fontSize = 13.sp,
+                                color = TextSecondary
+                            ),
+                            highlightStyle = TextStyle(
+                                fontSize = 13.sp,
+                                color = TextPrimary,
+                                background = WarningOrange.copy(alpha = 0.3f),
+                                fontWeight = FontWeight.Bold
+                            ),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = " • ",
@@ -651,4 +720,72 @@ fun ProjectCard(
             }
         }
     }
+}
+
+@Composable
+fun HighlightSearchText(
+    text: String,
+    highlight: String,
+    normalStyle: TextStyle = TextStyle(
+        fontSize = 18.sp,
+        fontWeight = FontWeight.Bold,
+        color = TextPrimary
+    ),
+    highlightStyle: TextStyle = TextStyle(
+        fontSize = 18.sp,
+        fontWeight = FontWeight.Bold,
+        color = PrimaryBlue,
+        background = PrimaryBlue.copy(alpha = 0.2f)
+    ),
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip
+) {
+    if (highlight.isEmpty()) {
+        Text(
+            text = text,
+            style = normalStyle,
+            maxLines = maxLines,
+            overflow = overflow
+        )
+        return
+    }
+
+    val annotatedString = buildAnnotatedString {
+        var currentIndex = 0
+        val lowerText = text.lowercase()
+        val lowerHighlight = highlight.lowercase()
+
+        while (currentIndex < text.length) {
+            val startIndex = lowerText.indexOf(lowerHighlight, currentIndex)
+
+            if (startIndex == -1) {
+                append(text.substring(currentIndex))
+                break
+            }
+
+            if (startIndex > currentIndex) {
+                append(text.substring(currentIndex, startIndex))
+            }
+
+            val endIndex = startIndex + highlight.length
+            pushStyle(
+                SpanStyle(
+                    color = highlightStyle.color,
+                    background = highlightStyle.background,
+                    fontWeight = highlightStyle.fontWeight
+                )
+            )
+            append(text.substring(startIndex, endIndex))
+            pop()
+
+            currentIndex = endIndex
+        }
+    }
+
+    Text(
+        text = annotatedString,
+        style = normalStyle,
+        maxLines = maxLines,
+        overflow = overflow
+    )
 }

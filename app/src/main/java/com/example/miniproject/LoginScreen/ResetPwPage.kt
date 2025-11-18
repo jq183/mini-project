@@ -21,18 +21,33 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.miniproject.ui.theme.*
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+
 fun ResetPwPage(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var emailSent by remember { mutableStateOf(false) }
-
     var invalidEmail by remember { mutableStateOf("") }
+
+    // 添加倒计时相关状态 ✅
+    var countdown by remember { mutableStateOf(0) }
+    var canResend by remember { mutableStateOf(true) }
 
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
+
+    // 添加倒计时逻辑 ✅
+    LaunchedEffect(countdown) {
+        if (countdown > 0) {
+            delay(1000)
+            countdown--
+        } else {
+            canResend = true
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -96,14 +111,15 @@ fun ResetPwPage(navController: NavController) {
 
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it
-                                    invalidEmail = when {
-                                        it.isEmpty() -> ""
-                                        !it.contains("@") -> "Please enter a valid email address"
-                                        !it.contains(".") -> "Please enter a valid email address"
-                                        else -> ""
-                                    }
-                                    },
+                    onValueChange = {
+                        email = it
+                        invalidEmail = when {
+                            it.isEmpty() -> ""
+                            !it.contains("@") -> "Please enter a valid email address"
+                            !it.contains(".") -> "Please enter a valid email address"
+                            else -> ""
+                        }
+                    },
                     label = { Text("Email Address") },
                     placeholder = { Text("Enter your email") },
                     modifier = Modifier
@@ -112,6 +128,11 @@ fun ResetPwPage(navController: NavController) {
                     shape = RoundedCornerShape(8.dp),
                     enabled = !isLoading,
                     singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PrimaryBlue,
+                        focusedLabelColor = PrimaryBlue,
+                        cursorColor = PrimaryBlue
+                    ),
                     supportingText = {
                         if (invalidEmail.isNotEmpty()) {
                             Text(
@@ -121,6 +142,7 @@ fun ResetPwPage(navController: NavController) {
                         }
                     }
                 )
+
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Button(
@@ -141,6 +163,8 @@ fun ResetPwPage(navController: NavController) {
                             .addOnSuccessListener {
                                 isLoading = false
                                 emailSent = true
+                                countdown = 60  // 开始60秒倒计时 ✅
+                                canResend = false
                             }
                             .addOnFailureListener { exception ->
                                 isLoading = false
@@ -183,6 +207,7 @@ fun ResetPwPage(navController: NavController) {
                     )
                 }
             } else {
+                // 邮件已发送的界面
                 Text(
                     text = "Check Your Email",
                     fontSize = 24.sp,
@@ -258,15 +283,37 @@ fun ResetPwPage(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // 修改重发按钮 ✅
                 TextButton(
                     onClick = {
-                        emailSent = false
-                        email = ""
-                    }
+                        if (canResend) {
+                            isLoading = true
+                            auth.sendPasswordResetEmail(email)
+                                .addOnSuccessListener {
+                                    isLoading = false
+                                    countdown = 60
+                                    canResend = false
+                                    Toast.makeText(context, "Email resent successfully!", Toast.LENGTH_SHORT).show()
+                                }
+                                .addOnFailureListener { exception ->
+                                    isLoading = false
+                                    Toast.makeText(
+                                        context,
+                                        "Failed to resend: ${exception.message}",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                        }
+                    },
+                    enabled = canResend && !isLoading
                 ) {
                     Text(
-                        text = "Didn't receive email? Try again",
-                        color = PrimaryBlue,
+                        text = if (countdown > 0) {
+                            "Resend email in ${countdown}s"
+                        } else {
+                            "Didn't receive email? Resend"
+                        },
+                        color = if (canResend) PrimaryBlue else TextSecondary,
                         fontSize = 14.sp
                     )
                 }

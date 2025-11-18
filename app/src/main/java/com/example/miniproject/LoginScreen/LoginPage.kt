@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -114,8 +115,7 @@ fun LoginPage(navController: NavController) {
                                 database.child("users").child(userId).get()
                                     .addOnSuccessListener { snapshot ->
                                         if (snapshot.exists()) {
-                                            Toast.makeText(context, "Welcome back!", Toast.LENGTH_SHORT).show()
-                                            // TODO: 跳转到主页
+                                            navController.navigate("mainPage")
                                         } else {
                                             Toast.makeText(context, "Please complete your profile", Toast.LENGTH_SHORT).show()
                                             navSignUp = true
@@ -186,12 +186,18 @@ fun LoginPage(navController: NavController) {
             value = email,
             onValueChange = { email = it },
             label = { Text("Email") },
-            placeholder = { Text("Enter your email or phone") },
+            placeholder = { Text("Enter your email") },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
             shape = RoundedCornerShape(8.dp),
-            enabled = !isLoading
+            enabled = !isLoading,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = PrimaryBlue,
+                unfocusedBorderColor = BorderGray,
+                focusedLabelColor = PrimaryBlue,
+                cursorColor = PrimaryBlue
+            )
         )
 
         OutlinedTextField(
@@ -219,7 +225,13 @@ fun LoginPage(navController: NavController) {
                 .fillMaxWidth()
                 .padding(bottom = 4.dp),
             shape = RoundedCornerShape(8.dp),
-            enabled = !isLoading
+            enabled = !isLoading,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = PrimaryBlue,
+                unfocusedBorderColor = BorderGray,
+                focusedLabelColor = PrimaryBlue,
+                cursorColor = PrimaryBlue
+            )
         )
 
         TextButton(
@@ -282,8 +294,8 @@ fun LoginPage(navController: NavController) {
                     .build()
 
                 val googleSignInClient = GoogleSignIn.getClient(context, gso)
-                googleSignInLauncher.launch(googleSignInClient.signInIntent)
-            },
+                googleSignInClient.signOut()
+                googleSignInLauncher.launch(googleSignInClient.signInIntent)            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp)
