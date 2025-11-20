@@ -117,8 +117,25 @@ fun LoginPage(navController: NavController) {
                                         if (snapshot.exists()) {
                                             navController.navigate("mainPage")
                                         } else {
-                                            Toast.makeText(context, "Please complete your profile", Toast.LENGTH_SHORT).show()
-                                            navSignUp = true
+                                            val user = auth.currentUser
+                                            val userData = hashMapOf(
+                                                "name" to (user?.displayName ?: "Google User"),
+                                                "email" to (user?.email ?: ""),
+                                                "profileImageUrl" to (user?.photoUrl?.toString() ?: ""),
+                                                "userId" to userId
+
+                                            )
+
+                                            database.child("users").child(userId).setValue(userData)
+                                                .addOnSuccessListener {
+                                                    Log.d("GoogleSignIn", "User profile created automatically")
+                                                    navController.navigate("mainPage")
+                                                }
+                                                .addOnFailureListener { e ->
+                                                    Log.e("GoogleSignIn", "Failed to create user profile", e)
+                                                    Toast.makeText(context, "Failed to create profile: ${e.message}", Toast.LENGTH_LONG).show()
+                                                }
+
                                         }
                                     }
                                     .addOnFailureListener { e ->

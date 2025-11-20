@@ -126,8 +126,8 @@ fun MainPage(navController: NavController) {
                 actions = {
                     IconButton(onClick = { /*  */ }) {
                         Icon(
-                            imageVector = Icons.Default.History,
-                            contentDescription = "History",
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Notifications",
                             tint = PrimaryBlue
                         )
                     }
@@ -234,7 +234,6 @@ fun MainPage(navController: NavController) {
                 }
             }
 
-            // Spacer
             item {
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -412,7 +411,6 @@ fun MainPage(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Apply Button
                 Button(
                     onClick = {
                         selectedCategory = tempCategory
@@ -579,7 +577,6 @@ fun ProjectCard(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Progress Bar
                 val progress = (project.currentAmount / project.goalAmount).toFloat()
                 LinearProgressIndicator(
                     progress = { progress },
@@ -593,7 +590,6 @@ fun ProjectCard(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Progress Info
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -638,7 +634,6 @@ fun ProjectCard(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Funding Info & Creator
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
