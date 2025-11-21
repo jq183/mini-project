@@ -18,6 +18,10 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.miniproject.AdminScreen.AdminDashboardPage
+import com.example.miniproject.AdminScreen.AdminHistoryPage
+import com.example.miniproject.AdminScreen.AdminMainPage
+import com.example.miniproject.AdminScreen.AdminReportsPage
 import com.example.miniproject.LoginScreen.ResetPwPage
 import com.example.miniproject.LoginScreen.SignUpPage
 import com.example.miniproject.UserScreen.MainPage
@@ -66,8 +70,20 @@ fun AppNavigation() {
         }
 
         composable ("adminMainPage"){
+            AdminMainPage(navController)
 
         }
+
+        composable("adminReports"){
+            AdminReportsPage(navController)
+        }
+        composable("adminHistory"){
+            AdminHistoryPage(navController)
+        }
+        composable("adminDashboard"){
+            AdminDashboardPage(navController)
+        }
+
 
     }
 }

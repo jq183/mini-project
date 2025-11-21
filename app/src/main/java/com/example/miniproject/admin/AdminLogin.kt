@@ -102,7 +102,6 @@ fun AdminLogin(navCollection: NavController) {
                             showGeneralError = false
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("email") },
                         enabled = !isLoading,
                         isError = emailError,
                         colors = OutlinedTextFieldDefaults.colors(
