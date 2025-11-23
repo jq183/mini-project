@@ -727,12 +727,14 @@ fun AdminProjectCard(
                     modifier = Modifier.weight(1f).height(36.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = PrimaryBlue
+                        contentColor =if (project.isWarning)ErrorRed
+                                else PrimaryBlue
                     ),
                     border = BorderStroke(1.dp, PrimaryBlue)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Visibility,
+                        imageVector = if (project.isWarning) Icons.Default.Report
+                                        else Icons.Default.Visibility,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp)
                     )
@@ -742,34 +744,7 @@ fun AdminProjectCard(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
                     )
-                }
 
-                // Quick Action Button
-                Button(
-                    onClick = onClick,
-                    modifier = Modifier.weight(1f).height(36.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (project.isWarning) ErrorRed
-                        else if (project.isOfficial) TextSecondary
-                        else SuccessGreen
-                    )
-                ) {
-                    Icon(
-                        imageVector = if (project.isWarning) Icons.Default.Report
-                        else if (project.isOfficial) Icons.Default.Edit
-                        else Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (project.isWarning) "Handle Report"
-                        else if (project.isOfficial) "Manage"
-                        else "Verify",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
                 }
             }
         }

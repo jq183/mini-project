@@ -31,7 +31,7 @@ data class Report(
     val reportedBy: String = "",
     val reportCategory: String = "",
     val description: String = "",
-    val status: String = "pending", // pending, reviewed, resolved, dismissed
+    val status: String = "pending", // pending, resolved, dismissed
     val reportedAt: Timestamp? = null,
     val resolvedAt: Timestamp? = null,
     val adminNotes: String = ""
@@ -47,7 +47,7 @@ fun AdminReportsPage(navController: NavController) {
     var showDetailDialog by remember { mutableStateOf(false) }
 
     val currentRoute = navController.currentBackStackEntry?.destination?.route
-    val filters = listOf("All", "Pending", "Reviewed", "Resolved", "Dismissed")
+    val filters = listOf("All", "Pending", "Resolved", "Dismissed")
 
     // Mock data - Replace with Firebase call
     LaunchedEffect(Unit) {
@@ -70,7 +70,7 @@ fun AdminReportsPage(navController: NavController) {
                 reportedBy = "Anonymous",
                 reportCategory = "Fake Information",
                 description = "Contact information doesn't match official records",
-                status = "reviewed",
+                status = "pending",
                 reportedAt = Timestamp.now()
             )
         )
@@ -279,14 +279,13 @@ fun AdminReportsPage(navController: NavController) {
                         }
                         Button(
                             onClick = {
-                                // Mark as reviewed
                                 showDetailDialog = false
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = PrimaryBlue
                             )
                         ) {
-                            Text("Mark Reviewed")
+                            Text("Dismiss")
                         }
                     }
                     TextButton(onClick = { showDetailDialog = false }) {

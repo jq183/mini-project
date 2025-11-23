@@ -21,6 +21,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.miniproject.AdminScreen.AdminDashboardPage
 import com.example.miniproject.AdminScreen.AdminHistoryPage
 import com.example.miniproject.AdminScreen.AdminMainPage
+import com.example.miniproject.AdminScreen.AdminProjectDetail
 import com.example.miniproject.AdminScreen.AdminReportsPage
 import com.example.miniproject.LoginScreen.ResetPwPage
 import com.example.miniproject.LoginScreen.SignUpPage
@@ -91,6 +92,13 @@ fun AppNavigation() {
         }
         composable("adminDashboard"){
             AdminDashboardPage(navController)
+        }
+
+        composable("adminProjectDetail/{projectId}") { backStackEntry ->
+            AdminProjectDetail(
+                navController = navController,
+                projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            )
         }
 
 
