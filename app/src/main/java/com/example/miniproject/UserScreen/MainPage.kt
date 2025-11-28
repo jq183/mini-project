@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -208,24 +209,33 @@ fun MainPage(navController: NavController) {
                 ) {
                     items(categories) { category ->
                         Column(
-                            modifier = Modifier
-                                .clickable { selectedCategory = category }
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Text(
-                                text = category,
-                                fontSize = 15.sp,
-                                fontWeight = if (selectedCategory == category) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selectedCategory == category) PrimaryBlue else TextSecondary
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .clickable(
+                                        onClick = { selectedCategory = category },
+                                        indication = ripple(bounded = true, color = PrimaryBlue),
+                                        interactionSource = remember { MutableInteractionSource() }
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = category,
+                                    fontSize = 15.sp,
+                                    fontWeight = if (selectedCategory == category) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selectedCategory == category) PrimaryBlue else TextSecondary
+                                )
+                            }
 
                             if (selectedCategory == category) {
-                                Spacer(modifier = Modifier.height(4.dp))
                                 Box(
                                     modifier = Modifier
                                         .width(40.dp)
                                         .height(3.dp)
+                                        .offset(y = (-8).dp)
                                         .background(PrimaryBlue, RoundedCornerShape(2.dp))
                                 )
                             }
@@ -442,274 +452,290 @@ fun ProjectCard(
     onClick: () -> Unit
 ) {
     var showCertifiedTips by remember { mutableStateOf(false) }
+
     LaunchedEffect(project.id) {
         println("Project: ${project.title}")
         println("isWarning: ${project.isWarning}")
         println("isOfficial: ${project.isOfficial}")
     }
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
-    ) {
-        Column {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .background(
-                        when (project.category) {
-                            "Technology" -> PrimaryBlue.copy(alpha = 0.2f)
-                            "Charity" -> SuccessGreen.copy(alpha = 0.2f)
-                            "Education" -> WarningOrange.copy(alpha = 0.2f)
-                            "Medical" -> ErrorRed.copy(alpha = 0.2f)
-                            "Games" -> InfoBlue.copy(alpha = 0.2f)
-                            else -> TextSecondary.copy(alpha = 0.2f)
-                        }
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = when (project.category) {
-                        "Technology" -> Icons.Default.Computer
-                        "Charity" -> Icons.Default.Favorite
-                        "Education" -> Icons.Default.School
-                        "Medical" -> Icons.Default.LocalHospital
-                        "Games" -> Icons.Default.SportsEsports
-                        else -> Icons.Default.Image
-                    },
-                    contentDescription = project.category,
-                    modifier = Modifier.size(80.dp),
-                    tint = when (project.category) {
-                        "Technology" -> PrimaryBlue.copy(alpha = 0.5f)
-                        "Charity" -> SuccessGreen.copy(alpha = 0.5f)
-                        "Education" -> WarningOrange.copy(alpha = 0.5f)
-                        "Medical" -> ErrorRed.copy(alpha = 0.5f)
-                        "Games" -> InfoBlue.copy(alpha = 0.5f)
-                        else -> TextSecondary.copy(alpha = 0.5f)
-                    }
-                )
-            }
 
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                // Title
-                Row (verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()){
+    Box {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .clickable(onClick = onClick),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
+        ) {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .background(
+                            when (project.category) {
+                                "Technology" -> PrimaryBlue.copy(alpha = 0.2f)
+                                "Charity" -> SuccessGreen.copy(alpha = 0.2f)
+                                "Education" -> WarningOrange.copy(alpha = 0.2f)
+                                "Medical" -> ErrorRed.copy(alpha = 0.2f)
+                                "Games" -> InfoBlue.copy(alpha = 0.2f)
+                                else -> TextSecondary.copy(alpha = 0.2f)
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = when (project.category) {
+                            "Technology" -> Icons.Default.Computer
+                            "Charity" -> Icons.Default.Favorite
+                            "Education" -> Icons.Default.School
+                            "Medical" -> Icons.Default.LocalHospital
+                            "Games" -> Icons.Default.SportsEsports
+                            else -> Icons.Default.Image
+                        },
+                        contentDescription = project.category,
+                        modifier = Modifier.size(80.dp),
+                        tint = when (project.category) {
+                            "Technology" -> PrimaryBlue.copy(alpha = 0.5f)
+                            "Charity" -> SuccessGreen.copy(alpha = 0.5f)
+                            "Education" -> WarningOrange.copy(alpha = 0.5f)
+                            "Medical" -> ErrorRed.copy(alpha = 0.5f)
+                            "Games" -> InfoBlue.copy(alpha = 0.5f)
+                            else -> TextSecondary.copy(alpha = 0.5f)
+                        }
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    // Title
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        HighlightSearchText(
+                            text = project.title,
+                            highlight = searchQuery,
+                            normalStyle = TextStyle(
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            ),
+                            highlightStyle = TextStyle(
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = BackgroundWhite,
+                                background = PrimaryBlue
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        if (project.isOfficial) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.Default.Verified,
+                                contentDescription = "Verified",
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = ripple(bounded = false, radius = 20.dp)
+                                    ) {
+                                        showCertifiedTips = !showCertifiedTips
+                                    },
+                                tint = PrimaryBlue
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     HighlightSearchText(
-                        text = project.title,
+                        text = project.description,
                         highlight = searchQuery,
                         normalStyle = TextStyle(
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            fontSize = 13.sp,
+                            color = TextSecondary
                         ),
                         highlightStyle = TextStyle(
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = BackgroundWhite,
-                            background = PrimaryBlue
+                            fontSize = 13.sp,
+                            color = TextPrimary,
+                            background = WarningOrange.copy(alpha = 0.3f),
+                            fontWeight = FontWeight.Bold
                         ),
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    if (project.isOfficial){
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(
-                            imageVector = Icons.Default.Verified,
-                            contentDescription = "Verified",
-                            modifier = Modifier.size(20.dp),
-                            tint = PrimaryBlue
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val progress = (project.currentAmount / project.goalAmount).toFloat()
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                        color = PrimaryBlue,
+                        trackColor = BorderGray,
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "${(progress * 100).toInt()}%",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryBlue
                         )
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Backers",
+                                modifier = Modifier.size(14.dp),
+                                tint = PrimaryBlue
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "${project.backers}",
+                                fontSize = 14.sp,
+                                color = TextSecondary
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = "Days Left",
+                                modifier = Modifier.size(14.dp),
+                                tint = PrimaryBlue
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "${project.daysLeft} days",
+                                fontSize = 14.sp,
+                                color = TextSecondary
+                            )
+                        }
                     }
-                    if (showCertifiedTips) {
-                        Box(
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = "RM${String.format("%.0f", project.currentAmount)}",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryBlue
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "/ RM${String.format("%.0f", project.goalAmount)}",
+                                fontSize = 14.sp,
+                                color = TextSecondary
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            HighlightSearchText(
+                                text = project.creatorName,
+                                highlight = searchQuery,
+                                normalStyle = TextStyle(
+                                    fontSize = 13.sp,
+                                    color = TextSecondary
+                                ),
+                                highlightStyle = TextStyle(
+                                    fontSize = 13.sp,
+                                    color = TextPrimary,
+                                    background = WarningOrange.copy(alpha = 0.3f),
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = " • ",
+                                fontSize = 13.sp,
+                                color = TextSecondary
+                            )
+                            Text(
+                                text = project.category,
+                                fontSize = 13.sp,
+                                color = PrimaryBlue,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    if (project.isWarning) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
                             modifier = Modifier
-                                .offset(y = 28.dp, x = (-70).dp)
-                                .width(160.dp)
+                                .fillMaxWidth()
                                 .background(
-                                    TextPrimary.copy(alpha = 0.9f),
+                                    WarningOrange.copy(alpha = 0.1f),
                                     RoundedCornerShape(8.dp)
                                 )
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    showCertifiedTips = false
-                                }
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "Warning",
+                                modifier = Modifier.size(16.dp),
+                                tint = WarningOrange
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Certified by SparkFund",
-                                fontSize = 11.sp,
-                                color = BackgroundWhite,
+                                text = "This project may contain suspicious content",
+                                fontSize = 12.sp,
+                                color = WarningOrange,
                                 fontWeight = FontWeight.Medium
                             )
                         }
                     }
                 }
+            }
+        }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                HighlightSearchText(
-                    text = project.description,
-                    highlight = searchQuery,
-                    normalStyle = TextStyle(
-                        fontSize = 13.sp,
-                        color = TextSecondary
-                    ),
-                    highlightStyle = TextStyle(
-                        fontSize = 13.sp,
-                        color = TextPrimary,
-                        background = WarningOrange.copy(alpha = 0.3f),
-                        fontWeight = FontWeight.Bold
-                    ),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                val progress = (project.currentAmount / project.goalAmount).toFloat()
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    color = PrimaryBlue,
-                    trackColor = BorderGray,
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+        if (showCertifiedTips && project.isOfficial) {
+            Surface(
+                modifier = Modifier
+                    .padding(top = 216.dp, start = 120.dp)
+                    .width(160.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        showCertifiedTips = false
+                    },
+                color = BackgroundWhite,
+                shape = RoundedCornerShape(8.dp),
+                shadowElevation = 8.dp
+            ) {
+                Box(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
                     Text(
-                        text = "${(progress * 100).toInt()}%",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryBlue
+                        text = "Certified by SparkFund",
+                        fontSize = 11.sp,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Medium
                     )
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Backers",
-                            modifier = Modifier.size(14.dp),
-                            tint = PrimaryBlue
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "${project.backers}",
-                            fontSize = 14.sp,
-                            color = TextSecondary
-                        )
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Schedule,
-                            contentDescription = "Days Left",
-                            modifier = Modifier.size(14.dp),
-                            tint = PrimaryBlue
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "${project.daysLeft} days",
-                            fontSize = 14.sp,
-                            color = TextSecondary
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = "RM${String.format("%.0f",project.currentAmount)}",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryBlue
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "/ RM${String.format("%.0f",project.goalAmount)}",
-                            fontSize = 14.sp,
-                            color = TextSecondary
-                        )
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        HighlightSearchText(
-                            text = project.creatorName,
-                            highlight = searchQuery,
-                            normalStyle = TextStyle(
-                                fontSize = 13.sp,
-                                color = TextSecondary
-                            ),
-                            highlightStyle = TextStyle(
-                                fontSize = 13.sp,
-                                color = TextPrimary,
-                                background = WarningOrange.copy(alpha = 0.3f),
-                                fontWeight = FontWeight.Bold
-                            ),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = " • ",
-                            fontSize = 13.sp,
-                            color = TextSecondary
-                        )
-                        Text(
-                            text = project.category,
-                            fontSize = 13.sp,
-                            color = PrimaryBlue,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-
-                if (project.isWarning) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                WarningOrange.copy(alpha = 0.1f),
-                                RoundedCornerShape(8.dp)
-                            )
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = "Warning",
-                            modifier = Modifier.size(16.dp),
-                            tint = WarningOrange
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "This project may contain suspicious content",
-                            fontSize = 12.sp,
-                            color = WarningOrange,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
                 }
             }
         }

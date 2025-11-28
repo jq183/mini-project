@@ -1,18 +1,42 @@
 package com.example.miniproject
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusModifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
@@ -70,10 +94,6 @@ fun AppNavigation() {
         composable  ("myProject"){
             MyProjectsPage(navController)
         }
-            //----admin------
-            composable("admin login") {
-                AdminLogin(navController)
-            }
         //----admin------
         composable("admin login") {
             AdminLogin(navController)
@@ -109,81 +129,89 @@ fun BottomNavigationBar(
     navController: NavController,
     currentRoute: String?
 ) {
-    NavigationBar(
-        containerColor = BackgroundWhite,
+    Surface(
+        color = BackgroundWhite,
         tonalElevation = 8.dp
     ) {
-        // Home
-        NavigationBarItem(
-            icon = {
-                Icon(
-                    Icons.Default.Home,
-                    contentDescription = "Home"
-                )
-            },
-            label = { Text("Home") },
-            selected = currentRoute == "mainPage",
-            onClick = {
-                if (currentRoute != "mainPage") {
-                    navController.navigate("mainPage") {
-                        popUpTo("mainPage") { inclusive = true }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(80.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CircularNavItem(
+                icon = Icons.Default.Home,
+                label = "Home",
+                selected = currentRoute == "mainPage",
+                onClick = {
+                    if (currentRoute != "mainPage") {
+                        navController.navigate("mainPage") {
+                            popUpTo("mainPage") { inclusive = true }
+                        }
                     }
                 }
-            },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = PrimaryBlue,
-                selectedTextColor = PrimaryBlue,
-                unselectedIconColor = TextSecondary,
-                unselectedTextColor = TextSecondary,
-                indicatorColor = Color.Transparent
             )
-        )
 
-        // My Projects
-        NavigationBarItem(
-            icon = {
-                Icon(
-                    Icons.Default.Folder,
-                    contentDescription = "My Projects"
-                )
-            },
-            label = { Text("My Projects") },
-            selected = currentRoute == "myProject",
-            onClick = {
-                if (currentRoute != "myProject") {
-                    navController.navigate("myProject")
+            CircularNavItem(
+                icon = Icons.Default.Folder,
+                label = "My Projects",
+                selected = currentRoute == "myProject",
+                onClick = {
+                    if (currentRoute != "myProject") {
+                        navController.navigate("myProject")
+                    }
                 }
-            },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = PrimaryBlue,
-                selectedTextColor = PrimaryBlue,
-                unselectedIconColor = TextSecondary,
-                unselectedTextColor = TextSecondary,
-                indicatorColor = Color.Transparent
             )
-        )
 
-        NavigationBarItem(
-            icon = {
-                Icon(
-                    Icons.Default.Person,
-                    contentDescription = "Profile"
-                )
-            },
-            label = { Text("Profile") },
-            selected = currentRoute == "profile",
-            onClick = {
-                if (currentRoute != "profile") {
-                    navController.navigate("profile")
+            CircularNavItem(
+                icon = Icons.Default.Person,
+                label = "Profile",
+                selected = currentRoute == "profile",
+                onClick = {
+                    if (currentRoute != "profile") {
+                        navController.navigate("profile")
+                    }
                 }
-            },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = PrimaryBlue,
-                selectedTextColor = PrimaryBlue,
-                unselectedIconColor = TextSecondary,
-                unselectedTextColor = TextSecondary,
-                indicatorColor = Color.Transparent
             )
+        }
+    }
+}
+
+@Composable
+fun CircularNavItem(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .clickable(
+                    onClick = onClick,
+                    indication = ripple(bounded = true, color = PrimaryBlue),
+                    interactionSource = remember { MutableInteractionSource() }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (selected) PrimaryBlue else TextSecondary,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Text(
+            text = label,
+            color = if (selected) PrimaryBlue else TextSecondary,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.offset(y = (-8).dp)
+
         )
     }
 }
