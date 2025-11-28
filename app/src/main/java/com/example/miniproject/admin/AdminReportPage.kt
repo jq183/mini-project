@@ -1,10 +1,12 @@
 package com.example.miniproject.AdminScreen
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -14,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -24,6 +27,7 @@ import com.google.firebase.Timestamp
 import java.text.SimpleDateFormat
 import java.util.*
 
+// 单个举报
 data class Report(
     val id: String = "",
     val projectId: String = "",
@@ -31,18 +35,45 @@ data class Report(
     val reportedBy: String = "",
     val reportCategory: String = "",
     val description: String = "",
-    val status: String = "pending", // pending, resolved, dismissed
+    val status: String = "pending",
     val reportedAt: Timestamp? = null,
     val resolvedAt: Timestamp? = null,
     val adminNotes: String = ""
 )
+
+// 合并后的举报组
+data class GroupedReport(
+    val projectId: String,
+    val projectTitle: String,
+    val reports: List<Report>, // 所有针对这个项目的举报
+    val totalReports: Int,
+    val latestReport: Report,
+    val categoryBreakdown: Map<String, Int> // 每个类别的举报数量
+) {
+    val mostCommonCategory: String
+        get() = categoryBreakdown.maxByOrNull { it.value }?.key ?: "Unknown"
+
+    val status: String
+        get() {
+            val statuses = reports.map { it.status }
+            return when {
+                statuses.all { it == "resolved" } -> "resolved"
+                statuses.all { it == "dismissed" } -> "dismissed"
+                statuses.any { it == "pending" } -> "pending"
+                else -> "pending"
+            }
+        }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminReportsPage(navController: NavController) {
     var selectedFilter by remember { mutableStateOf("All") }
     var reports by remember { mutableStateOf<List<Report>>(emptyList()) }
+    var groupedReports by remember { mutableStateOf<List<GroupedReport>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var selectedGroupedReport by remember { mutableStateOf<GroupedReport?>(null) }
+    var showReportsDialog by remember { mutableStateOf(false) }
     var selectedReport by remember { mutableStateOf<Report?>(null) }
     var showDetailDialog by remember { mutableStateOf(false) }
 
@@ -51,7 +82,7 @@ fun AdminReportsPage(navController: NavController) {
 
     // Mock data - Replace with Firebase call
     LaunchedEffect(Unit) {
-        // Simulated reports
+        // 模拟多个用户举报同一个项目
         reports = listOf(
             Report(
                 id = "1",
@@ -65,23 +96,73 @@ fun AdminReportsPage(navController: NavController) {
             ),
             Report(
                 id = "2",
+                projectId = "proj1",
+                projectTitle = "AI Learning Platform",
+                reportedBy = "user456",
+                reportCategory = "Fake Information",
+                description = "The creator's credentials don't check out",
+                status = "pending",
+                reportedAt = Timestamp(Timestamp.now().seconds - 3600, 0)
+            ),
+            Report(
+                id = "3",
+                projectId = "proj1",
+                projectTitle = "AI Learning Platform",
+                reportedBy = "Anonymous",
+                reportCategory = "Scam",
+                description = "Similar project was reported before",
+                status = "pending",
+                reportedAt = Timestamp(Timestamp.now().seconds - 7200, 0)
+            ),
+            Report(
+                id = "4",
                 projectId = "proj2",
                 projectTitle = "Help Cancer Patients",
-                reportedBy = "Anonymous",
+                reportedBy = "user789",
                 reportCategory = "Fake Information",
-                description = "Contact information doesn't match official records",
+                description = "Contact information doesn't match hospital records",
                 status = "pending",
                 reportedAt = Timestamp.now()
+            ),
+            Report(
+                id = "5",
+                projectId = "proj2",
+                projectTitle = "Help Cancer Patients",
+                reportedBy = "user999",
+                reportCategory = "Inappropriate Content",
+                description = "Using stock photos instead of real patients",
+                status = "pending",
+                reportedAt = Timestamp(Timestamp.now().seconds - 1800, 0)
             )
         )
+
+        // 按项目分组
+        groupedReports = reports
+            .groupBy { it.projectId }
+            .map { (projectId, projectReports) ->
+                val categoryBreakdown = projectReports
+                    .groupBy { it.reportCategory }
+                    .mapValues { it.value.size }
+
+                GroupedReport(
+                    projectId = projectId,
+                    projectTitle = projectReports.first().projectTitle,
+                    reports = projectReports.sortedByDescending { it.reportedAt?.seconds ?: 0 },
+                    totalReports = projectReports.size,
+                    latestReport = projectReports.maxByOrNull { it.reportedAt?.seconds ?: 0 }!!,
+                    categoryBreakdown = categoryBreakdown
+                )
+            }
+            .sortedByDescending { it.totalReports }
+
         isLoading = false
     }
 
-    val filteredReports = remember(selectedFilter, reports) {
+    val filteredGroupedReports = remember(selectedFilter, groupedReports) {
         if (selectedFilter == "All") {
-            reports
+            groupedReports
         } else {
-            reports.filter { it.status.equals(selectedFilter, ignoreCase = true) }
+            groupedReports.filter { it.status.equals(selectedFilter, ignoreCase = true) }
         }
     }
 
@@ -159,9 +240,7 @@ fun AdminReportsPage(navController: NavController) {
                 }
             }
 
-            Divider(color = BorderGray, thickness = 1.dp)
-
-            // Reports List
+            // Grouped Reports List
             if (isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -169,7 +248,7 @@ fun AdminReportsPage(navController: NavController) {
                 ) {
                     CircularProgressIndicator(color = PrimaryBlue)
                 }
-            } else if (filteredReports.isEmpty()) {
+            } else if (filteredGroupedReports.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -192,11 +271,68 @@ fun AdminReportsPage(navController: NavController) {
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(filteredReports) { report ->
-                        ReportCard(
+                    items(filteredGroupedReports) { groupedReport ->
+                        GroupedReportCard(
+                            groupedReport = groupedReport,
+                            navController = navController
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // All Reports Dialog for a Project
+    if (showReportsDialog && selectedGroupedReport != null) {
+        AlertDialog(
+            onDismissRequest = { showReportsDialog = false },
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.8f),
+            title = {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "All Reports",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                        Surface(
+                            shape = CircleShape,
+                            color = ErrorRed.copy(alpha = 0.1f)
+                        ) {
+                            Text(
+                                text = "${selectedGroupedReport!!.totalReports}",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ErrorRed,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = selectedGroupedReport!!.projectTitle,
+                        fontSize = 14.sp,
+                        color = TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            },
+            text = {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(selectedGroupedReport!!.reports) { report ->
+                        IndividualReportItem(
                             report = report,
                             onClick = {
                                 selectedReport = report
@@ -205,11 +341,47 @@ fun AdminReportsPage(navController: NavController) {
                         )
                     }
                 }
+            },
+            confirmButton = {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            navController.navigate("adminProjectDetail/${selectedGroupedReport!!.projectId}")
+                            showReportsDialog = false
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Visibility,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("View Project")
+                    }
+
+                    Button(
+                        onClick = {
+                            // Handle all reports at once
+                            showReportsDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ErrorRed
+                        )
+                    ) {
+                        Text("Handle All")
+                    }
+
+                    TextButton(onClick = { showReportsDialog = false }) {
+                        Text("Close")
+                    }
+                }
             }
-        }
+        )
     }
 
-    // Report Detail Dialog
+    // Individual Report Detail Dialog
     if (showDetailDialog && selectedReport != null) {
         AlertDialog(
             onDismissRequest = { showDetailDialog = false },
@@ -298,17 +470,17 @@ fun AdminReportsPage(navController: NavController) {
 }
 
 @Composable
-fun ReportCard(
-    report: Report,
-    onClick: () -> Unit
+fun GroupedReportCard(
+    groupedReport: GroupedReport,
+    navController: NavController
 ) {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
-    val reportDate = report.reportedAt?.toDate()?.let { dateFormat.format(it) } ?: "Unknown"
+    val latestReportDate = groupedReport.latestReport.reportedAt?.toDate()?.let {
+        dateFormat.format(it)
+    } ?: "Unknown"
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
@@ -316,6 +488,7 @@ fun ReportCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
+            // Header with count badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -323,7 +496,7 @@ fun ReportCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = report.projectTitle,
+                        text = groupedReport.projectTitle,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary,
@@ -340,7 +513,7 @@ fun ReportCard(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = report.reportCategory,
+                            text = groupedReport.mostCommonCategory,
                             fontSize = 13.sp,
                             color = ErrorRed,
                             fontWeight = FontWeight.Medium
@@ -348,13 +521,63 @@ fun ReportCard(
                     }
                 }
 
-                StatusBadge(status = report.status)
+                // Report count badge
+                Surface(
+                    shape = CircleShape,
+                    color = ErrorRed
+                ) {
+                    Text(
+                        text = "${groupedReport.totalReports} Reports",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BackgroundWhite,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
+            // Category breakdown
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                groupedReport.categoryBreakdown.entries.take(3).forEach { (category, count) ->
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = WarningOrange.copy(alpha = 0.1f)
+                    ) {
+                        Text(
+                            text = "$category ($count)",
+                            fontSize = 11.sp,
+                            color = WarningOrange,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+                if (groupedReport.categoryBreakdown.size > 3) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = TextSecondary.copy(alpha = 0.1f)
+                    ) {
+                        Text(
+                            text = "+${groupedReport.categoryBreakdown.size - 3}",
+                            fontSize = 11.sp,
+                            color = TextSecondary,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Latest report preview
             Text(
-                text = report.description,
+                text = "Latest: ${groupedReport.latestReport.description}",
                 fontSize = 13.sp,
                 color = TextSecondary,
                 maxLines = 2,
@@ -363,37 +586,62 @@ fun ReportCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            HorizontalDivider(thickness = 1.dp, color = BorderGray)
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Action buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+
+                OutlinedButton(
+                    onClick = {
+                        navController.navigate("adminReportDetail/${groupedReport.projectId}")
+                    },
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.White,
+                        contentColor = ErrorRed
+                    ),
+                    border = BorderStroke(1.dp, ErrorRed) // 红色边框
+                ) {
                     Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Reporter",
-                        modifier = Modifier.size(14.dp),
-                        tint = TextSecondary
+                        imageVector = Icons.Default.Report,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = report.reportedBy,
+                        text = "View Reports",
                         fontSize = 12.sp,
-                        color = TextSecondary
+                        fontWeight = FontWeight.Medium
                     )
                 }
 
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Timestamp
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.Schedule,
                         contentDescription = "Date",
-                        modifier = Modifier.size(14.dp),
-                        tint = TextSecondary
+                        modifier = Modifier.size(12.dp),
+                        tint = TextLight
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = reportDate,
-                        fontSize = 12.sp,
-                        color = TextSecondary
+                        text = "Latest: $latestReportDate",
+                        fontSize = 11.sp,
+                        color = TextLight
                     )
                 }
             }
@@ -402,34 +650,81 @@ fun ReportCard(
 }
 
 @Composable
-fun StatusBadge(status: String) {
-    val (color, icon) = when (status.lowercase()) {
-        "pending" -> WarningOrange to Icons.Default.HourglassEmpty
-        "reviewed" -> InfoBlue to Icons.Default.Visibility
-        "resolved" -> SuccessGreen to Icons.Default.CheckCircle
-        "dismissed" -> TextSecondary to Icons.Default.Cancel
-        else -> TextSecondary to Icons.Default.Help
-    }
+fun IndividualReportItem(
+    report: Report,
+    onClick: () -> Unit
+) {
+    val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
+    val reportDate = report.reportedAt?.toDate()?.let { dateFormat.format(it) } ?: "Unknown"
 
-    Row(
+    Card(
         modifier = Modifier
-            .background(color.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceGray),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = status,
-            modifier = Modifier.size(14.dp),
-            tint = color
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = status.uppercase(),
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = color
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Category Icon
+            Surface(
+                shape = CircleShape,
+                color = when (report.reportCategory) {
+                    "Scam" -> ErrorRed.copy(alpha = 0.1f)
+                    "Fake Information" -> WarningOrange.copy(alpha = 0.1f)
+                    "Inappropriate Content" -> InfoBlue.copy(alpha = 0.1f)
+                    else -> TextSecondary.copy(alpha = 0.1f)
+                },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Report,
+                        contentDescription = null,
+                        tint = when (report.reportCategory) {
+                            "Scam" -> ErrorRed
+                            "Fake Information" -> WarningOrange
+                            "Inappropriate Content" -> InfoBlue
+                            else -> TextSecondary
+                        },
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = report.reportCategory,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = "by ${report.reportedBy}",
+                    fontSize = 12.sp,
+                    color = TextSecondary
+                )
+                Text(
+                    text = reportDate,
+                    fontSize = 11.sp,
+                    color = TextLight
+                )
+            }
+
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "View details",
+                tint = TextSecondary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
 

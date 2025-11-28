@@ -15,13 +15,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.miniproject.AdminScreen.AdminDashboardPage
 import com.example.miniproject.AdminScreen.AdminHistoryPage
 import com.example.miniproject.AdminScreen.AdminMainPage
 import com.example.miniproject.AdminScreen.AdminProjectDetail
+import com.example.miniproject.AdminScreen.AdminReportDetailPage
 import com.example.miniproject.AdminScreen.AdminReportsPage
 import com.example.miniproject.LoginScreen.ResetPwPage
 import com.example.miniproject.LoginScreen.SignUpPage
@@ -96,6 +99,16 @@ fun AppNavigation() {
 
         composable("adminProjectDetail/{projectId}") { backStackEntry ->
             AdminProjectDetail(
+                navController = navController,
+                projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            )
+        }
+
+        composable(
+            route = "adminReportDetail/{projectId}",
+            arguments = listOf(navArgument("projectId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            AdminReportDetailPage(
                 navController = navController,
                 projectId = backStackEntry.arguments?.getString("projectId") ?: ""
             )
