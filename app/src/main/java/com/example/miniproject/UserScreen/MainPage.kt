@@ -117,7 +117,7 @@ fun MainPage(navController: NavController) {
             TopAppBar(
                 title = {
                     Text(
-                        text = "FundSpark",
+                        text = "SparkFund",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = PrimaryBlue,
@@ -546,7 +546,7 @@ fun ProjectCard(
                                 }
                         ) {
                             Text(
-                                text = "Certified by FundSpark",
+                                text = "Certified by SparkFund",
                                 fontSize = 11.sp,
                                 color = BackgroundWhite,
                                 fontWeight = FontWeight.Medium
@@ -557,7 +557,6 @@ fun ProjectCard(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Description
                 HighlightSearchText(
                     text = project.description,
                     highlight = searchQuery,

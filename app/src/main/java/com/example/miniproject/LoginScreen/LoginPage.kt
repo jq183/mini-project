@@ -66,7 +66,7 @@ fun LoginPage(navController: NavController) {
     var showForgotPwDialog by remember { mutableStateOf(false) }
     var emailReset by remember { mutableStateOf("") }
     var displayedText by remember { mutableStateOf("") }
-    val fullText = "FundSpark"
+    val fullText = "SparkFund"
 
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()

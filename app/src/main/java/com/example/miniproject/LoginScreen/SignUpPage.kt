@@ -74,7 +74,7 @@ fun SignUpPage(onBackToLogin: () -> Unit = {},navController: NavController) {
     var googleEmail by remember { mutableStateOf("") }
 
     var displayedText by remember { mutableStateOf("") }
-    val fullText = "FundSpark"
+    val fullText = "SparkFund"
 
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()

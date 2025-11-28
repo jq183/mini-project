@@ -239,7 +239,6 @@ fun MyProjectsPage(navController: NavController) {
                     }
                 }
                 selectedTab == 1 -> {
-                    // Backed Projects Tab
                     if (backedProjects.isEmpty()) {
                         EmptyStateView(
                             icon = Icons.Default.Favorite,
@@ -662,7 +661,6 @@ fun BackedProjectCard(
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
-                // Title
                 Text(
                     text = project.title,
                     fontSize = 18.sp,
@@ -674,7 +672,6 @@ fun BackedProjectCard(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Description
                 Text(
                     text = project.description,
                     fontSize = 13.sp,
@@ -685,7 +682,6 @@ fun BackedProjectCard(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Progress Bar
                 val progress = if (project.goalAmount > 0) {
                     (project.currentAmount / project.goalAmount).toFloat().coerceIn(0f, 1f)
                 } else {
@@ -703,7 +699,6 @@ fun BackedProjectCard(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Progress Info Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -744,11 +739,28 @@ fun BackedProjectCard(
                             color = TextSecondary
                         )
                     }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.VolunteerActivism,
+                            contentDescription = "Backed",
+                            modifier = Modifier.size(14.dp),
+                            tint = PrimaryBlue
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "RM 100",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextSecondary
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Funding Info & Creator/Category
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
