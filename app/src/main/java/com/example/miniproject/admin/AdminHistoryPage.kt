@@ -1,6 +1,7 @@
 package com.example.miniproject.AdminScreen
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,13 +25,16 @@ import java.util.*
 
 data class AdminAction(
     val id: String = "",
-    val actionType: String = "", // "certification_added", "certification_removed", "report_resolved", "project_flagged", "project_removed"
+    val actionType: String = "",
+    // "verified", "unverified", "flagged", "unflagged", "deleted",
+    // "report_resolved", "report_dismissed", "report_flagged_project"
     val projectId: String = "",
     val projectTitle: String = "",
     val adminEmail: String = "",
     val description: String = "",
     val timestamp: Timestamp? = null,
-    val additionalInfo: String = ""
+    val additionalInfo: String = "",
+    val reportDetails: String? = null // For report-related actions
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,14 +43,16 @@ fun AdminHistoryPage(navController: NavController) {
     var selectedFilter by remember { mutableStateOf("All") }
     var historyActions by remember { mutableStateOf<List<AdminAction>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var selectedAction by remember { mutableStateOf<AdminAction?>(null) }
+    var showDetailDialog by remember { mutableStateOf(false) }
 
     val currentRoute = navController.currentBackStackEntry?.destination?.route
     val filters = listOf(
         "All",
-        "Certifications",
-        "Reports",
-        "Projects Flagged",
-        "Projects Removed"
+        "Verifications",
+        "Reports Handled",
+        "Flags & Warnings",
+        "Deletions"
     )
 
     // Mock data - Replace with Firebase call
@@ -54,13 +60,13 @@ fun AdminHistoryPage(navController: NavController) {
         historyActions = listOf(
             AdminAction(
                 id = "1",
-                actionType = "certification_added",
+                actionType = "verified",
                 projectId = "proj1",
                 projectTitle = "Help Children Education Fund",
                 adminEmail = "admin@fundspark.com",
-                description = "Added official certification mark",
+                description = "Project verified and certified",
                 timestamp = Timestamp.now(),
-                additionalInfo = "Verified with official organization documents"
+                additionalInfo = "Verified organization credentials and bank details"
             ),
             AdminAction(
                 id = "2",
@@ -68,43 +74,81 @@ fun AdminHistoryPage(navController: NavController) {
                 projectId = "proj2",
                 projectTitle = "Tech Startup Funding",
                 adminEmail = "admin@fundspark.com",
-                description = "Resolved scam report - Found legitimate",
-                timestamp = Timestamp.now(),
-                additionalInfo = "Report dismissed after verification"
+                description = "Scam report resolved - Project is legitimate",
+                timestamp = Timestamp(Timestamp.now().seconds - 3600, 0),
+                additionalInfo = "Report dismissed after thorough verification",
+                reportDetails = "Reporter: user123 | Category: Scam | 3 total reports"
             ),
             AdminAction(
                 id = "3",
-                actionType = "project_flagged",
+                actionType = "flagged",
                 projectId = "proj3",
                 projectTitle = "Fake Charity Campaign",
                 adminEmail = "admin@fundspark.com",
-                description = "Flagged project as suspicious",
-                timestamp = Timestamp.now(),
-                additionalInfo = "Multiple scam reports received"
+                description = "Project flagged as suspicious",
+                timestamp = Timestamp(Timestamp.now().seconds - 7200, 0),
+                additionalInfo = "Multiple scam reports with valid evidence",
+                reportDetails = "5 reports | Categories: Scam (3), Fake Info (2)"
             ),
             AdminAction(
                 id = "4",
-                actionType = "certification_removed",
+                actionType = "unverified",
                 projectId = "proj4",
                 projectTitle = "Medical Research Fund",
                 adminEmail = "admin@fundspark.com",
-                description = "Removed certification mark",
-                timestamp = Timestamp.now(),
-                additionalInfo = "Organization status changed"
+                description = "Verification removed due to expired documents",
+                timestamp = Timestamp(Timestamp.now().seconds - 10800, 0),
+                additionalInfo = "Organization registration expired"
+            ),
+            AdminAction(
+                id = "5",
+                actionType = "deleted",
+                projectId = "proj5",
+                projectTitle = "Confirmed Scam Project",
+                adminEmail = "admin@fundspark.com",
+                description = "Project permanently deleted",
+                timestamp = Timestamp(Timestamp.now().seconds - 14400, 0),
+                additionalInfo = "Confirmed fraud after investigation",
+                reportDetails = "15 reports | All users refunded"
+            ),
+            AdminAction(
+                id = "6",
+                actionType = "report_dismissed",
+                projectId = "proj6",
+                projectTitle = "Community Garden Project",
+                adminEmail = "admin@fundspark.com",
+                description = "Report dismissed - False claim",
+                timestamp = Timestamp(Timestamp.now().seconds - 18000, 0),
+                additionalInfo = "Reporter had personal conflict with creator",
+                reportDetails = "Reporter: Anonymous | Category: Fake Information"
+            ),
+            AdminAction(
+                id = "7",
+                actionType = "unflagged",
+                projectId = "proj3",
+                projectTitle = "Fake Charity Campaign",
+                adminEmail = "admin@fundspark.com",
+                description = "Warning flag removed after compliance",
+                timestamp = Timestamp(Timestamp.now().seconds - 21600, 0),
+                additionalInfo = "Creator provided proper documentation"
             )
-        )
+        ).sortedByDescending { it.timestamp?.seconds ?: 0 }
         isLoading = false
     }
 
     val filteredActions = remember(selectedFilter, historyActions) {
         when (selectedFilter) {
             "All" -> historyActions
-            "Certifications" -> historyActions.filter {
-                it.actionType == "certification_added" || it.actionType == "certification_removed"
+            "Verifications" -> historyActions.filter {
+                it.actionType == "verified" || it.actionType == "unverified"
             }
-            "Reports" -> historyActions.filter { it.actionType == "report_resolved" }
-            "Projects Flagged" -> historyActions.filter { it.actionType == "project_flagged" }
-            "Projects Removed" -> historyActions.filter { it.actionType == "project_removed" }
+            "Reports Handled" -> historyActions.filter {
+                it.actionType == "report_resolved" || it.actionType == "report_dismissed"
+            }
+            "Flags & Warnings" -> historyActions.filter {
+                it.actionType == "flagged" || it.actionType == "unflagged"
+            }
+            "Deletions" -> historyActions.filter { it.actionType == "deleted" }
             else -> historyActions
         }
     }
@@ -119,6 +163,15 @@ fun AdminHistoryPage(navController: NavController) {
                         fontWeight = FontWeight.Bold,
                         color = PrimaryBlue,
                     )
+                },
+                actions = {
+                    IconButton(onClick = { /* TODO: Export history */ }) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Export",
+                            tint = PrimaryBlue
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = BackgroundWhite
@@ -183,7 +236,6 @@ fun AdminHistoryPage(navController: NavController) {
                 }
             }
 
-            Divider(color = BorderGray, thickness = 1.dp)
 
             // History List
             if (isLoading) {
@@ -220,8 +272,235 @@ fun AdminHistoryPage(navController: NavController) {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(filteredActions) { action ->
-                        ActionHistoryCard(action = action)
+                        ActionHistoryCard(
+                            action = action,
+                            onClick = {
+                                selectedAction = action
+                                showDetailDialog = true
+                            },
+                            onViewProject = {
+                                navController.navigate("adminProjectDetail/${action.projectId}")
+                            }
+                        )
                     }
+                }
+            }
+        }
+    }
+
+    // Action Detail Dialog
+    if (showDetailDialog && selectedAction != null) {
+        ActionDetailDialog(
+            action = selectedAction!!,
+            onDismiss = { showDetailDialog = false },
+            onViewProject = {
+                navController.navigate("adminProjectDetail/${selectedAction!!.projectId}")
+                showDetailDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+fun HistoryStat(
+    count: Int,
+    label: String,
+    color: androidx.compose.ui.graphics.Color
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "$count",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = TextSecondary
+        )
+    }
+}
+
+@Composable
+fun ActionHistoryCard(
+    action: AdminAction,
+    onClick: () -> Unit,
+    onViewProject: () -> Unit
+) {
+    val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
+    val actionDate = action.timestamp?.toDate()?.let { dateFormat.format(it) } ?: "Unknown"
+
+    val (icon, color, actionLabel) = when (action.actionType) {
+        "verified" -> Triple(Icons.Default.Verified, SuccessGreen, "Verified")
+        "unverified" -> Triple(Icons.Default.RemoveCircle, TextSecondary, "Unverified")
+        "report_resolved" -> Triple(Icons.Default.CheckCircle, SuccessGreen, "Report Resolved")
+        "report_dismissed" -> Triple(Icons.Default.Cancel, TextSecondary, "Report Dismissed")
+        "flagged" -> Triple(Icons.Default.Warning, WarningOrange, "Flagged")
+        "unflagged" -> Triple(Icons.Default.CheckCircle, InfoBlue, "Unflagged")
+        "deleted" -> Triple(Icons.Default.Delete, ErrorRed, "Deleted")
+        else -> Triple(Icons.Default.Info, TextSecondary, "Action")
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                // Icon
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(color.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = actionLabel,
+                        modifier = Modifier.size(24.dp),
+                        tint = color
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Content
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = color.copy(alpha = 0.1f)
+                        ) {
+                            Text(
+                                text = actionLabel,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = color,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = action.projectTitle,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = action.description,
+                        fontSize = 13.sp,
+                        color = TextSecondary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    // Report details if available
+                    if (action.reportDetails != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(ErrorRed.copy(alpha = 0.05f), RoundedCornerShape(6.dp))
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Report,
+                                contentDescription = "Report",
+                                modifier = Modifier.size(14.dp),
+                                tint = ErrorRed
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = action.reportDetails,
+                                fontSize = 11.sp,
+                                color = ErrorRed,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            HorizontalDivider(thickness = 1.dp, color = BorderGray)
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Footer
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Admin",
+                        modifier = Modifier.size(14.dp),
+                        tint = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = action.adminEmail.substringBefore("@"),
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = "Time",
+                        modifier = Modifier.size(14.dp),
+                        tint = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = actionDate,
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
+                }
+
+                TextButton(
+                    onClick = onViewProject,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                ) {
+                    Text("View Project", fontSize = 12.sp)
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
+                    )
                 }
             }
         }
@@ -229,141 +508,157 @@ fun AdminHistoryPage(navController: NavController) {
 }
 
 @Composable
-fun ActionHistoryCard(action: AdminAction) {
-    val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
+fun ActionDetailDialog(
+    action: AdminAction,
+    onDismiss: () -> Unit,
+    onViewProject: () -> Unit
+) {
+    val dateFormat = SimpleDateFormat("EEEE, MMM dd, yyyy 'at' HH:mm", Locale.getDefault())
     val actionDate = action.timestamp?.toDate()?.let { dateFormat.format(it) } ?: "Unknown"
 
     val (icon, color, actionLabel) = when (action.actionType) {
-        "certification_added" -> Triple(Icons.Default.Verified, SuccessGreen, "Certification Added")
-        "certification_removed" -> Triple(Icons.Default.RemoveCircle, WarningOrange, "Certification Removed")
-        "report_resolved" -> Triple(Icons.Default.CheckCircle, InfoBlue, "Report Resolved")
-        "project_flagged" -> Triple(Icons.Default.Flag, WarningOrange, "Project Flagged")
-        "project_removed" -> Triple(Icons.Default.Delete, ErrorRed, "Project Removed")
+        "verified" -> Triple(Icons.Default.Verified, SuccessGreen, "Project Verified")
+        "unverified" -> Triple(Icons.Default.RemoveCircle, TextSecondary, "Verification Removed")
+        "report_resolved" -> Triple(Icons.Default.CheckCircle, SuccessGreen, "Report Resolved")
+        "report_dismissed" -> Triple(Icons.Default.Cancel, TextSecondary, "Report Dismissed")
+        "flagged" -> Triple(Icons.Default.Warning, WarningOrange, "Project Flagged")
+        "unflagged" -> Triple(Icons.Default.CheckCircle, InfoBlue, "Flag Removed")
+        "deleted" -> Triple(Icons.Default.Delete, ErrorRed, "Project Deleted")
         else -> Triple(Icons.Default.Info, TextSecondary, "Action Performed")
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            // Icon
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .background(color.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
+                    .size(64.dp)
+                    .background(color.copy(alpha = 0.1f), RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
-                    contentDescription = actionLabel,
-                    modifier = Modifier.size(24.dp),
-                    tint = color
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(32.dp)
                 )
             }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Content
-            Column(modifier = Modifier.weight(1f)) {
+        },
+        title = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = actionLabel,
-                    fontSize = 15.sp,
+                    actionLabel,
                     fontWeight = FontWeight.Bold,
-                    color = color
+                    fontSize = 20.sp
                 )
-
                 Spacer(modifier = Modifier.height(4.dp))
-
                 Text(
-                    text = action.projectTitle,
+                    action.projectTitle,
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary,
+                    color = TextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = action.description,
-                    fontSize = 13.sp,
-                    color = TextSecondary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+            }
+        },
+        text = {
+            Column {
+                DetailRow("Action", action.description)
+                DetailRow("Admin", action.adminEmail)
+                DetailRow("Date & Time", actionDate)
+                DetailRow("Project ID", action.projectId)
 
                 if (action.additionalInfo.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(BackgroundGray, RoundedCornerShape(6.dp))
-                            .padding(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "Info",
-                            modifier = Modifier.size(14.dp),
-                            tint = TextSecondary
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = action.additionalInfo,
-                            fontSize = 12.sp,
-                            color = TextSecondary,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "Additional Information:",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        action.additionalInfo,
+                        fontSize = 13.sp,
+                        color = TextSecondary,
+                        lineHeight = 18.sp
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Footer
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Admin",
-                            modifier = Modifier.size(12.dp),
-                            tint = TextSecondary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = action.adminEmail,
-                            fontSize = 11.sp,
-                            color = TextSecondary
-                        )
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Schedule,
-                            contentDescription = "Time",
-                            modifier = Modifier.size(12.dp),
-                            tint = TextSecondary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = actionDate,
-                            fontSize = 11.sp,
-                            color = TextSecondary
-                        )
+                if (action.reportDetails != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = ErrorRed.copy(alpha = 0.05f)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Report,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = ErrorRed
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "Report Details:",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = ErrorRed
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                action.reportDetails,
+                                fontSize = 12.sp,
+                                color = TextSecondary
+                            )
+                        }
                     }
                 }
             }
+        },
+        confirmButton = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(onClick = onViewProject) {
+                    Icon(
+                        imageVector = Icons.Default.Visibility,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("View Project")
+                }
+                Button(onClick = onDismiss) {
+                    Text("Close")
+                }
+            }
         }
+    )
+}
+
+@Composable
+fun DetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = "$label:",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextSecondary,
+            modifier = Modifier.weight(0.35f)
+        )
+        Text(
+            text = value,
+            fontSize = 13.sp,
+            color = TextPrimary,
+            modifier = Modifier.weight(0.65f)
+        )
     }
 }

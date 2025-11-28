@@ -21,6 +21,9 @@ import coil.compose.AsyncImage
 import com.example.miniproject.UserScreen.Project
 import com.example.miniproject.repository.ProjectRepository
 import com.example.miniproject.ui.theme.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.shape.CircleShape
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -488,81 +491,149 @@ fun AdminProjectDetail(
     if (showManageDialog) {
         AlertDialog(
             onDismissRequest = { showManageDialog = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = null,
-                    tint = PrimaryBlue,
-                    modifier = Modifier.size(48.dp)
-                )
-            },
             title = {
-                Text(
-                    text = "Manage Project",
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        tint = PrimaryBlue,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            "Manage Project",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                        Text(
+                            project!!.title,
+                            fontSize = 14.sp,
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             },
             text = {
-                Text("Select a management action for this project.")
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Verify/Unverify
+                    ManagementActionCard(
+                        icon = if (project!!.isOfficial) Icons.Default.Cancel else Icons.Default.Verified,
+                        title = if (project!!.isOfficial) "Remove Verification" else "Verify Project",
+                        description = if (project!!.isOfficial)
+                            "Remove verified badge from this project"
+                        else
+                            "Mark this project as verified and official",
+                        color = if (project!!.isOfficial) TextSecondary else SuccessGreen,
+                        onClick = {
+                            // TODO: Toggle verification
+                            showManageDialog = false
+                        }
+                    )
+
+                    // Warning
+                    ManagementActionCard(
+                        icon = Icons.Default.Warning,
+                        title = if (project!!.isWarning) "Remove Warning" else "Flag as Warning",
+                        description = if (project!!.isWarning)
+                            "Remove warning badge from this project"
+                        else
+                            "Add warning badge to alert users",
+                        color = WarningOrange,
+                        onClick = {
+                            // TODO: Toggle warning
+                            showManageDialog = false
+                        }
+                    )
+
+                    // Delete
+                    ManagementActionCard(
+                        icon = Icons.Default.Delete,
+                        title = "Delete Project",
+                        description = "Permanently remove this project",
+                        color = ErrorRed,
+                        onClick = {
+                            // TODO: Delete project
+                            showManageDialog = false
+                        }
+                    )
+                }
             },
             confirmButton = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                TextButton(
+                    onClick = { showManageDialog = false }
                 ) {
-                    OutlinedButton(
-                        onClick = {
-                            // TODO: Implement edit logic
-                            showManageDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        border = BorderStroke(1.dp, SuccessGreen)
-                    ) {
-                        Text("Verify", color = SuccessGreen)
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            // TODO: Implement view reports logic
-                            showManageDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        border = BorderStroke(1.dp, TextSecondary)
-                    ) {
-                        Text("Unverify", color = TextSecondary)
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            // TODO: Implement delete logic
-                            showManageDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        border = BorderStroke(1.dp, WarningOrange)
-                    ) {
-                        Text("Warning", color = WarningOrange)
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            // TODO: Implement delete logic
-                            showManageDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        border = BorderStroke(1.dp, ErrorRed)
-                    ) {
-                        Text("Delete Project", color = ErrorRed)
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            // TODO: Implement delete logic
-                            showManageDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        border = BorderStroke(1.dp, PrimaryBlue)
-                    ) {
-                        Text("Cancel", color = PrimaryBlue)
-                    }
+                    Text("Close", color = PrimaryBlue, fontWeight = FontWeight.Medium)
                 }
             }
         )
+    }
+}
+
+@Composable
+fun ManagementActionCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    description: String,
+    color: Color,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = color.copy(alpha = 0.08f)
+        ),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = color.copy(alpha = 0.15f),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = color,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = color
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = description,
+                    fontSize = 13.sp,
+                    color = TextSecondary,
+                    lineHeight = 18.sp
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
 
