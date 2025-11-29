@@ -52,6 +52,7 @@ import com.example.miniproject.AdminScreen.AdminReportDetailPage
 import com.example.miniproject.AdminScreen.AdminReportsPage
 import com.example.miniproject.LoginScreen.ResetPwPage
 import com.example.miniproject.LoginScreen.SignUpPage
+import com.example.miniproject.UserScreen.EditProfilePage
 import com.example.miniproject.UserScreen.MainPage
 import com.example.miniproject.UserScreen.MyProjectsPage
 import com.example.miniproject.UserScreen.ProfilePage
@@ -96,6 +97,10 @@ fun AppNavigation() {
 
         composable  ("myProject"){
             MyProjectsPage(navController)
+        }
+
+        composable ("editProfile"){
+            EditProfilePage(navController)
         }
         //----admin------
         composable("admin login") {

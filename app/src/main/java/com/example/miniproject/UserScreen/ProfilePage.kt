@@ -151,7 +151,6 @@ fun ProfilePage(navController: NavController) {
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // 钱包余额
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
@@ -193,7 +192,6 @@ fun ProfilePage(navController: NavController) {
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
 
-            // General Section
             item {
                 Text(
                     text = "General",
@@ -218,7 +216,7 @@ fun ProfilePage(navController: NavController) {
                             icon = Icons.Default.History,
                             title = "Transaction History",
                             subtitle = "View your transactions",
-                            onClick = { /* TODO */ }
+                            onClick = { /*  */ }
                         )
 
                         Divider(
@@ -230,7 +228,51 @@ fun ProfilePage(navController: NavController) {
                             icon = Icons.Default.CreditCard,
                             title = "Payment Method",
                             subtitle = "Manage payment options",
-                            onClick = { /* TODO */ }
+                            onClick = { /*  */ }
+                        )
+                    }
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+
+            item {
+                Text(
+                    text = "Account",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                )
+            }
+
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = BackgroundWhite),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column {
+                        ProfileMenuItem(
+                            icon = Icons.Default.Email,
+                            title = "Change Email",
+                            subtitle = "Update your email address",
+                            onClick = { /*  */ }
+                        )
+
+                        Divider(
+                            color = BorderGray.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+
+                        ProfileMenuItem(
+                            icon = Icons.Default.Password,
+                            title = "Change Password",
+                            subtitle = "Update your password",
+                            onClick = { /*  */ }
                         )
                     }
                 }
