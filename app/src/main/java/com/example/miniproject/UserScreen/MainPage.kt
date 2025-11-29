@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -200,46 +201,38 @@ fun MainPage(navController: NavController) {
             }
 
             item {
-                LazyRow(
+                ScrollableTabRow(
+                    selectedTabIndex = categories.indexOf(selectedCategory),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(BackgroundWhite)
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .background(BackgroundWhite),
+                    containerColor = BackgroundWhite,
+                    contentColor = PrimaryBlue,
+                    edgePadding = 16.dp,
+                    indicator = { tabPositions ->
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[categories.indexOf(selectedCategory)]),
+                            color = PrimaryBlue,
+                            height = 3.dp
+                        )
+                    },
+                    divider = {}
                 ) {
-                    items(categories) { category ->
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(CircleShape)
-                                    .clickable(
-                                        onClick = { selectedCategory = category },
-                                        indication = ripple(bounded = true, color = PrimaryBlue),
-                                        interactionSource = remember { MutableInteractionSource() }
-                                    )
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
+                    categories.forEach { category ->
+                        Tab(
+                            selected = selectedCategory == category,
+                            onClick = { selectedCategory = category },
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)),
+                            text = {
                                 Text(
                                     text = category,
                                     fontSize = 15.sp,
-                                    fontWeight = if (selectedCategory == category) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedCategory == category) PrimaryBlue else TextSecondary
+                                    fontWeight = if (selectedCategory == category) FontWeight.Bold else FontWeight.Normal
                                 )
-                            }
-
-                            if (selectedCategory == category) {
-                                Box(
-                                    modifier = Modifier
-                                        .width(40.dp)
-                                        .height(3.dp)
-                                        .offset(y = (-8).dp)
-                                        .background(PrimaryBlue, RoundedCornerShape(2.dp))
-                                )
-                            }
-                        }
+                            },
+                            selectedContentColor = PrimaryBlue,
+                            unselectedContentColor = TextSecondary
+                        )
                     }
                 }
             }

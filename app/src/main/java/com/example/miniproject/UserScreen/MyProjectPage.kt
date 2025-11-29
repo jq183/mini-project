@@ -442,7 +442,7 @@ fun MyProjectCard(
                         DropdownMenuItem(
                             text = {
                                 Text(
-                                    "Edit Project",
+                                    "Edit",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -463,7 +463,7 @@ fun MyProjectCard(
                         DropdownMenuItem(
                             text = {
                                 Text(
-                                    "Delete Project",
+                                    "Delete",
                                     color = ErrorRed,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium
