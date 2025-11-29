@@ -1,10 +1,10 @@
 package com.example.miniproject.AdminScreen
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -12,12 +12,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.miniproject.ui.theme.*
+import com.google.firebase.auth.FirebaseAuth
+
+data class AdminProfile(
+    val email: String = "",
+    val name: String = "Admin",
+    val responsibleCategories: List<String> = emptyList()
+)
 
 data class DashboardStats(
     val totalProjects: Int = 0,
@@ -30,24 +39,26 @@ data class DashboardStats(
     val totalFunding: Double = 0.0
 )
 
-data class RecentActivity(
-    val title: String,
-    val description: String,
-    val time: String,
-    val type: String // "report", "certification", "warning"
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminDashboardPage(navController: NavController) {
     var stats by remember { mutableStateOf(DashboardStats()) }
-    var recentActivities by remember { mutableStateOf<List<RecentActivity>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    var adminProfile by remember { mutableStateOf(AdminProfile()) }
 
     val currentRoute = navController.currentBackStackEntry?.destination?.route
 
     // Mock data - Replace with Firebase call
     LaunchedEffect(Unit) {
+        // Get current admin info
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        adminProfile = AdminProfile(
+            email = currentUser?.email ?: "admin@example.com",
+            name = "Admin User", // You can fetch this from Firestore
+            responsibleCategories = listOf("Technology", "Education") // Fetch from Firestore
+        )
+
         stats = DashboardStats(
             totalProjects = 156,
             activeProjects = 142,
@@ -58,34 +69,6 @@ fun AdminDashboardPage(navController: NavController) {
             resolvedReports = 33,
             totalFunding = 1250000.0
         )
-
-        recentActivities = listOf(
-            RecentActivity(
-                "New scam report",
-                "Project 'AI Learning Platform' reported for fake information",
-                "5 min ago",
-                "report"
-            ),
-            RecentActivity(
-                "Certification added",
-                "Verified 'Help Cancer Patients' as official fundraising",
-                "1 hour ago",
-                "certification"
-            ),
-            RecentActivity(
-                "Project flagged",
-                "Flagged 'Quick Money Scheme' as suspicious",
-                "2 hours ago",
-                "warning"
-            ),
-            RecentActivity(
-                "Report resolved",
-                "Dismissed report for 'Tech Startup Fund' - verified legitimate",
-                "3 hours ago",
-                "report"
-            )
-        )
-
         isLoading = false
     }
 
@@ -93,12 +76,21 @@ fun AdminDashboardPage(navController: NavController) {
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "Dashboard",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryBlue,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Dashboard,
+                            contentDescription = null,
+                            tint = PrimaryBlue,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Dashboard",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryBlue,
+                        )
+                    }
                 },
                 actions = {
                     IconButton(onClick = { /* Refresh data */ }) {
@@ -106,6 +98,13 @@ fun AdminDashboardPage(navController: NavController) {
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Refresh",
                             tint = PrimaryBlue
+                        )
+                    }
+                    IconButton(onClick = { showLogoutDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Logout,
+                            contentDescription = "Logout",
+                            tint = ErrorRed
                         )
                     }
                 },
@@ -139,74 +138,241 @@ fun AdminDashboardPage(navController: NavController) {
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Welcome Section
                 item {
+                    // Admin Profile Card
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(4.dp, RoundedCornerShape(16.dp)),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = PrimaryBlue
+                            containerColor = BackgroundWhite
                         )
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(
+                                            PrimaryBlue.copy(alpha = 0.1f),
+                                            InfoBlue.copy(alpha = 0.05f)
+                                        )
+                                    )
+                                )
                                 .padding(20.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                Text(
-                                    "Welcome Back, Admin!",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = BackgroundWhite
-                                )
+                            // Admin Avatar
+                            Surface(
+                                shape = CircleShape,
+                                color = PrimaryBlue,
+                                modifier = Modifier.size(64.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Admin",
+                                        modifier = Modifier.size(32.dp),
+                                        tint = BackgroundWhite
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = adminProfile.name,
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextPrimary
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = PrimaryBlue.copy(alpha = 0.15f)
+                                    ) {
+                                        Text(
+                                            "ADMIN",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = PrimaryBlue,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+
                                 Spacer(modifier = Modifier.height(4.dp))
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Email,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = TextSecondary
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = adminProfile.email,
+                                        fontSize = 13.sp,
+                                        color = TextSecondary
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Responsible Categories
                                 Text(
-                                    "Here's what's happening today",
-                                    fontSize = 14.sp,
-                                    color = BackgroundWhite.copy(alpha = 0.9f)
+                                    "Responsible Categories:",
+                                    fontSize = 12.sp,
+                                    color = TextSecondary,
+                                    fontWeight = FontWeight.Medium
+                                )
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    adminProfile.responsibleCategories.forEach { category ->
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = when (category) {
+                                                "Technology" -> PrimaryBlue.copy(alpha = 0.15f)
+                                                "Charity" -> SuccessGreen.copy(alpha = 0.15f)
+                                                "Education" -> WarningOrange.copy(alpha = 0.15f)
+                                                "Medical" -> ErrorRed.copy(alpha = 0.15f)
+                                                "Art" -> InfoBlue.copy(alpha = 0.15f)
+                                                "Games" -> TextSecondary.copy(alpha = 0.15f)
+                                                else -> TextSecondary.copy(alpha = 0.15f)
+                                            }
+                                        ) {
+                                            Text(
+                                                text = category,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = when (category) {
+                                                    "Technology" -> PrimaryBlue
+                                                    "Charity" -> SuccessGreen
+                                                    "Education" -> WarningOrange
+                                                    "Medical" -> ErrorRed
+                                                    "Art" -> InfoBlue
+                                                    "Games" -> TextSecondary
+                                                    else -> TextSecondary
+                                                },
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // Quick Stats Summary Card
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(4.dp, RoundedCornerShape(16.dp)),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = BackgroundWhite),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(
+                                "Quick Overview",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                QuickStatItem(
+                                    value = stats.pendingReports.toString(),
+                                    label = "Pending Reports",
+                                    icon = Icons.Default.HourglassEmpty,
+                                    color = WarningOrange
+                                )
+                                VerticalDivider(
+                                    modifier = Modifier.height(50.dp),
+                                    thickness = 1.dp,
+                                    color = BorderGray
+                                )
+                                QuickStatItem(
+                                    value = stats.activeProjects.toString(),
+                                    label = "Active Projects",
+                                    icon = Icons.Default.TrendingUp,
+                                    color = SuccessGreen
+                                )
+                                VerticalDivider(
+                                    modifier = Modifier.height(50.dp),
+                                    thickness = 1.dp,
+                                    color = BorderGray
+                                )
+                                QuickStatItem(
+                                    value = stats.flaggedProjects.toString(),
+                                    label = "Flagged",
+                                    icon = Icons.Default.Flag,
+                                    color = ErrorRed
                                 )
                             }
+                        }
+                    }
+                }
+
+                // Projects Overview Section
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Projects Overview",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        TextButton(onClick = { navController.navigate("admin_projects") }) {
+                            Text("View All", color = PrimaryBlue, fontSize = 14.sp)
                             Icon(
-                                imageVector = Icons.Default.AdminPanelSettings,
-                                contentDescription = "Admin",
-                                modifier = Modifier.size(48.dp),
-                                tint = BackgroundWhite.copy(alpha = 0.8f)
+                                imageVector = Icons.Default.ArrowForward,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = PrimaryBlue
                             )
                         }
                     }
                 }
 
-                // Stats Grid - Projects
-                item {
-                    Text(
-                        "Projects Overview",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                }
-
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        StatCard(
+                        EnhancedStatCard(
                             modifier = Modifier.weight(1f),
-                            title = "Total Projects",
+                            title = "Total",
                             value = stats.totalProjects.toString(),
                             icon = Icons.Default.Folder,
-                            color = PrimaryBlue
+                            color = PrimaryBlue,
+                            showProgress = false
                         )
-                        StatCard(
+                        EnhancedStatCard(
                             modifier = Modifier.weight(1f),
                             title = "Active",
                             value = stats.activeProjects.toString(),
                             icon = Icons.Default.CheckCircle,
-                            color = SuccessGreen
+                            color = SuccessGreen,
+                            percentage = (stats.activeProjects.toFloat() / stats.totalProjects * 100).toInt()
                         )
                     }
                 }
@@ -216,32 +382,49 @@ fun AdminDashboardPage(navController: NavController) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        StatCard(
+                        EnhancedStatCard(
                             modifier = Modifier.weight(1f),
                             title = "Certified",
                             value = stats.certifiedProjects.toString(),
                             icon = Icons.Default.Verified,
-                            color = InfoBlue
+                            color = InfoBlue,
+                            percentage = (stats.certifiedProjects.toFloat() / stats.totalProjects * 100).toInt()
                         )
-                        StatCard(
+                        EnhancedStatCard(
                             modifier = Modifier.weight(1f),
                             title = "Flagged",
                             value = stats.flaggedProjects.toString(),
                             icon = Icons.Default.Warning,
-                            color = WarningOrange
+                            color = WarningOrange,
+                            percentage = (stats.flaggedProjects.toFloat() / stats.totalProjects * 100).toInt()
                         )
                     }
                 }
 
-                // Stats Grid - Reports
+                // Reports Overview Section
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "Reports Overview",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Reports Overview",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        TextButton(onClick = { navController.navigate("admin_reports") }) {
+                            Text("Manage", color = PrimaryBlue, fontSize = 14.sp)
+                            Icon(
+                                imageVector = Icons.Default.ArrowForward,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = PrimaryBlue
+                            )
+                        }
+                    }
                 }
 
                 item {
@@ -249,19 +432,21 @@ fun AdminDashboardPage(navController: NavController) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        StatCard(
+                        EnhancedStatCard(
                             modifier = Modifier.weight(1f),
-                            title = "Total Reports",
+                            title = "Total",
                             value = stats.totalReports.toString(),
                             icon = Icons.Default.Report,
-                            color = ErrorRed
+                            color = ErrorRed,
+                            showProgress = false
                         )
-                        StatCard(
+                        EnhancedStatCard(
                             modifier = Modifier.weight(1f),
                             title = "Pending",
                             value = stats.pendingReports.toString(),
                             icon = Icons.Default.HourglassEmpty,
-                            color = WarningOrange
+                            color = WarningOrange,
+                            percentage = (stats.pendingReports.toFloat() / stats.totalReports * 100).toInt()
                         )
                     }
                 }
@@ -270,44 +455,51 @@ fun AdminDashboardPage(navController: NavController) {
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(4.dp, RoundedCornerShape(16.dp)),
+                        shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
+                                .padding(20.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(48.dp)
+                                        .size(56.dp)
                                         .background(
-                                            SuccessGreen.copy(alpha = 0.1f),
-                                            RoundedCornerShape(12.dp)
+                                            SuccessGreen.copy(alpha = 0.15f),
+                                            RoundedCornerShape(14.dp)
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.AttachMoney,
+                                        imageVector = Icons.Default.AccountBalance,
                                         contentDescription = "Funding",
-                                        modifier = Modifier.size(24.dp),
+                                        modifier = Modifier.size(28.dp),
                                         tint = SuccessGreen
                                     )
                                 }
-                                Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.width(16.dp))
                                 Column {
                                     Text(
                                         "Total Platform Funding",
-                                        fontSize = 13.sp,
-                                        color = TextSecondary
+                                        fontSize = 14.sp,
+                                        color = TextSecondary,
+                                        fontWeight = FontWeight.Medium
                                     )
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         "RM ${String.format("%,.0f", stats.totalFunding)}",
-                                        fontSize = 20.sp,
+                                        fontSize = 24.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = SuccessGreen
                                     )
@@ -317,40 +509,108 @@ fun AdminDashboardPage(navController: NavController) {
                     }
                 }
 
-                // Recent Activity
                 item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "Recent Activity",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                }
-
-                items(recentActivities) { activity ->
-                    RecentActivityCard(activity = activity)
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
     }
+
+    // Logout Confirmation Dialog
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Logout,
+                    contentDescription = null,
+                    tint = ErrorRed,
+                    modifier = Modifier.size(48.dp)
+                )
+            },
+            title = {
+                Text(
+                    "Logout",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text("Are you sure you want to logout from admin panel?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        FirebaseAuth.getInstance().signOut()
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                        showLogoutDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ErrorRed
+                    )
+                ) {
+                    Text("Logout")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable
-fun StatCard(
+fun QuickStatItem(
+    value: String,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    color: Color
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(horizontal = 4.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = color
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = value,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            color = TextSecondary,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+@Composable
+fun EnhancedStatCard(
     modifier: Modifier = Modifier,
     title: String,
     value: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    color: androidx.compose.ui.graphics.Color
+    color: Color,
+    percentage: Int? = null,
+    showProgress: Boolean = true
 ) {
     Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.shadow(2.dp, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
     ) {
         Column(
@@ -363,98 +623,52 @@ fun StatCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column {
-                    Text(
-                        text = title,
-                        fontSize = 13.sp,
-                        color = TextSecondary,
-                        maxLines = 1
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = value,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = color
-                    )
-                }
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .background(color.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
+                        .size(48.dp)
+                        .background(color.copy(alpha = 0.15f), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = title,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(24.dp),
                         tint = color
                     )
                 }
-            }
-        }
-    }
-}
 
-@Composable
-fun RecentActivityCard(activity: RecentActivity) {
-    val (icon, color) = when (activity.type) {
-        "report" -> Icons.Default.Report to ErrorRed
-        "certification" -> Icons.Default.Verified to SuccessGreen
-        "warning" -> Icons.Default.Warning to WarningOrange
-        else -> Icons.Default.Info to InfoBlue
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(color.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = activity.type,
-                    modifier = Modifier.size(20.dp),
-                    tint = color
-                )
+                if (percentage != null && showProgress) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = color.copy(alpha = 0.1f)
+                    ) {
+                        Text(
+                            text = "$percentage%",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = color,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = activity.title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = activity.description,
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = activity.time,
-                fontSize = 11.sp,
-                color = TextSecondary
+                text = value,
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                color = TextSecondary,
+                fontWeight = FontWeight.Medium
             )
         }
     }
