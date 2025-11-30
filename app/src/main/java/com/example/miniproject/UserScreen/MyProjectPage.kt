@@ -153,7 +153,6 @@ fun MyProjectsPage(navController: NavController) {
                 .background(BackgroundGray)
                 .padding(paddingValues)
         ) {
-            // Tabs
             TabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = BackgroundWhite,
@@ -185,7 +184,6 @@ fun MyProjectsPage(navController: NavController) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Content
             when {
                 isLoading -> {
                     Box(
@@ -196,7 +194,6 @@ fun MyProjectsPage(navController: NavController) {
                     }
                 }
                 currentUserId.isEmpty() -> {
-                    // Guest user
                     EmptyStateView(
                         icon = Icons.Default.Person,
                         title = "Please Log In",
@@ -206,7 +203,6 @@ fun MyProjectsPage(navController: NavController) {
                     )
                 }
                 selectedTab == 0 -> {
-                    // My Projects Tab
                     if (myProjects.isEmpty()) {
                         EmptyStateView(
                             icon = Icons.Default.Folder,
@@ -267,7 +263,6 @@ fun MyProjectsPage(navController: NavController) {
         }
     }
 
-    // Delete Confirmation Dialog
     if (showDeleteDialog && projectToDelete != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
