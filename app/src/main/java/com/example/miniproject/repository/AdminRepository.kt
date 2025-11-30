@@ -24,8 +24,6 @@ class AdminRepository {
                 return Result.failure(Exception("Please use company email (@js.com)"))
             }
 
-            // 使用临时密码进行登录（或者你可以使用其他方式）
-            // 这里使用 email 作为密码的示例，实际应用中应该有真实的密码
             val tempPassword = "admin123456" // 你可以根据需求修改
 
             try {
