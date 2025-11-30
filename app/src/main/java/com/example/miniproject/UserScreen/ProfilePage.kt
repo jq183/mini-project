@@ -260,7 +260,7 @@ fun ProfilePage(navController: NavController) {
                             icon = Icons.Default.Email,
                             title = "Change Email",
                             subtitle = "Update your email address",
-                            onClick = { /*  */ }
+                            onClick = { navController.navigate("changeEmail") }
                         )
 
                         Divider(
@@ -272,7 +272,7 @@ fun ProfilePage(navController: NavController) {
                             icon = Icons.Default.Password,
                             title = "Change Password",
                             subtitle = "Update your password",
-                            onClick = { /*  */ }
+                            onClick = { navController.navigate("changePw")}
                         )
                     }
                 }
