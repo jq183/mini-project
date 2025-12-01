@@ -14,7 +14,8 @@ data class Report(
     val status: String = "pending",
     val reportedAt: Timestamp? = null,
     val resolvedAt: Timestamp? = null,
-    val adminNotes: String = ""
+    val adminNotes: String = "",
+    val isAnonymous: Boolean = false
 )
 
 data class GroupedReport(
@@ -38,122 +39,92 @@ data class GroupedReport(
                 else -> "pending"
             }
         }
+
+    // 获取待处理报告数量
+    val pendingCount: Int
+        get() = reports.count { it.status == "pending" }
+
+    // 获取已解决报告数量
+    val resolvedCount: Int
+        get() = reports.count { it.status == "resolved" }
+
+    // 获取已忽略报告数量
+    val dismissedCount: Int
+        get() = reports.count { it.status == "dismissed" }
 }
 
 class ReportRepository {
     private val db = FirebaseFirestore.getInstance()
 
-    // 根据 admin 负责的类别获取报告
-    suspend fun getReportsForAdmin(adminResponsible: List<String>): Result<List<Report>> {
+    // 获取所有报告并自动按项目分组
+    suspend fun getAllReportsGrouped(): Result<List<GroupedReport>> {
         return try {
-            android.util.Log.d("ReportRepository", "========== getReportsForAdmin START ==========")
-            android.util.Log.d("ReportRepository", "Admin responsible project categories: $adminResponsible")
+            val snapshot = db.collection("Reports").get().await()
 
-            if (adminResponsible.isEmpty()) {
-                android.util.Log.w("ReportRepository", "adminResponsible is EMPTY! Returning empty list")
-                return Result.success(emptyList())
-            }
-
-            // 1️⃣ 查出 admin 负责的项目
-            val projectSnapshot = db.collection("projects")
-                .whereIn("Category", adminResponsible)
-                .get()
-                .await()
-
-            val projectIds = projectSnapshot.documents.mapNotNull { it.id }
-            android.util.Log.d("ReportRepository", "Project IDs found: $projectIds")
-
-            if (projectIds.isEmpty()) {
-                android.util.Log.w("ReportRepository", "No projects found for admin categories: $adminResponsible")
-                return Result.success(emptyList())
-            }
-
-            // 2️⃣ 查对应 project_id 的所有 report
-            val allReports = mutableListOf<Report>()
-            for (pid in projectIds) {
-                val snapshot = db.collection("reports")
-                    .whereEqualTo("project_id", pid)
-                    .get()
-                    .await()
-
-                android.util.Log.d("ReportRepository", "Reports found for project [$pid]: ${snapshot.size()}")
-
-                snapshot.documents.mapNotNullTo(allReports) { doc ->
-                    Report(
-                        id = doc.id,
-                        projectId = doc.getString("project_id") ?: "",
-                        projectTitle = "", // 后面统一填 project title
-                        reportedBy = doc.getString("user_id")?.takeIf { it.isNotEmpty() } ?: "Anonymous",
-                        reportCategory = doc.getString("category") ?: "",
-                        description = doc.getString("description") ?: "",
-                        status = doc.getString("status") ?: "pending",
-                        reportedAt = doc.getTimestamp("reported_at"),
-                        resolvedAt = doc.getTimestamp("resolved_at"),
-                        adminNotes = doc.getString("result") ?: ""
-                    )
-                }
-            }
-
-            android.util.Log.d("ReportRepository", "Total reports collected: ${allReports.size}")
-
-            if (allReports.isEmpty()) {
-                android.util.Log.w("ReportRepository", "⚠️ No reports found for admin's projects")
-                return Result.success(emptyList())
-            }
-
-            // 3️⃣ 批量获取 project title
-            val projectTitles = mutableMapOf<String, String>()
-            projectIds.forEach { projectId ->
-                val projectDoc = db.collection("projects").document(projectId).get().await()
-                val title = projectDoc.getString("Title")
-                    ?: projectDoc.getString("projectTitle")
-                    ?: "Unknown Project"
-                projectTitles[projectId] = title
-            }
-
-            val reportsWithTitle = allReports.map { report ->
-                report.copy(projectTitle = projectTitles[report.projectId] ?: "Unknown Project")
-            }.sortedByDescending { it.reportedAt?.seconds ?: 0 }
-
-            android.util.Log.d("ReportRepository", "Returning ${reportsWithTitle.size} reports with titles")
-            android.util.Log.d("ReportRepository", "========== getReportsForAdmin END ==========")
-
-            Result.success(reportsWithTitle)
-        } catch (e: Exception) {
-            android.util.Log.e("ReportRepository", "❌ ERROR in getReportsForAdmin", e)
-            Result.failure(e)
-        }
-    }
-
-    // 获取所有报告
-    suspend fun getAllReports(): Result<List<Report>> {
-        return try {
-            val snapshot = db.collection("reports").get().await()
-
-            val projectIds = snapshot.documents.mapNotNull { it.getString("project_id") }.distinct()
+            val projectIds = snapshot.documents.mapNotNull { it.getString("Project_ID") }.distinct()
 
             val projectTitles = mutableMapOf<String, String>()
             projectIds.forEach { projectId ->
                 val projectDoc = db.collection("projects").document(projectId).get().await()
-                projectTitles[projectId] = projectDoc.getString("title")
-                    ?: projectDoc.getString("projectTitle")
-                            ?: "Unknown Project"
+                projectTitles[projectId] = projectDoc.getString("Title") ?: "Unknown Project"
             }
 
             val reports = snapshot.documents.mapNotNull { doc ->
                 try {
-                    val projectId = doc.getString("project_id") ?: ""
+                    val projectId = doc.getString("Project_ID") ?: ""
                     Report(
                         id = doc.id,
                         projectId = projectId,
                         projectTitle = projectTitles[projectId] ?: "Unknown Project",
-                        reportedBy = doc.getString("user_id") ?: "Anonymous",
-                        reportCategory = doc.getString("category") ?: "",
-                        description = doc.getString("description") ?: "",
-                        status = doc.getString("status") ?: "pending",
-                        reportedAt = doc.getTimestamp("reported_at"),
-                        resolvedAt = doc.getTimestamp("resolved_at"),
-                        adminNotes = doc.getString("result") ?: ""
+                        reportedBy = doc.getString("User_ID") ?: "Anonymous",
+                        reportCategory = doc.getString("Category") ?: "",
+                        description = doc.getString("Description") ?: "",
+                        status = doc.getString("Status") ?: "pending",
+                        reportedAt = doc.getTimestamp("Reported_at"),
+                        resolvedAt = doc.getTimestamp("Resolved_at"),
+                        adminNotes = doc.getString("Result") ?: "",
+                        isAnonymous = doc.getBoolean("is_anonymous") ?: false
+                    )
+                } catch (e: Exception) {
+                    null
+                }
+            }
+
+            val groupedReports = groupReportsByProject(reports)
+            Result.success(groupedReports)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 获取所有报告（未分组）
+    suspend fun getAllReports(): Result<List<Report>> {
+        return try {
+            val snapshot = db.collection("Reports").get().await()
+
+            val projectIds = snapshot.documents.mapNotNull { it.getString("Project_ID") }.distinct()
+
+            val projectTitles = mutableMapOf<String, String>()
+            projectIds.forEach { projectId ->
+                val projectDoc = db.collection("projects").document(projectId).get().await()
+                projectTitles[projectId] = projectDoc.getString("Title") ?: "Unknown Project"
+            }
+
+            val reports = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val projectId = doc.getString("Project_ID") ?: ""
+                    Report(
+                        id = doc.id,
+                        projectId = projectId,
+                        projectTitle = projectTitles[projectId] ?: "Unknown Project",
+                        reportedBy = doc.getString("User_ID") ?: "Anonymous",
+                        reportCategory = doc.getString("Category") ?: "",
+                        description = doc.getString("Description") ?: "",
+                        status = doc.getString("Status") ?: "pending",
+                        reportedAt = doc.getTimestamp("Reported_at"),
+                        resolvedAt = doc.getTimestamp("Resolved_at"),
+                        adminNotes = doc.getString("Result") ?: "",
+                        isAnonymous = doc.getBoolean("is_anonymous") ?: false
                     )
                 } catch (e: Exception) {
                     null
@@ -193,37 +164,74 @@ class ReportRepository {
             .sortedByDescending { it.totalReports }
     }
 
-    // 更新报告状态
+    // 更新单个报告状态
     suspend fun updateReportStatus(
         reportId: String,
         status: String,
         adminNotes: String = ""
     ): Result<Boolean> {
         return try {
-            val updates = mutableMapOf<String, Any>("status" to status)
-            if (adminNotes.isNotEmpty()) updates["result"] = adminNotes
-            if (status == "resolved") updates["resolved_at"] = Timestamp.now()
+            val updates = mutableMapOf<String, Any>("Status" to status)
+            if (adminNotes.isNotEmpty()) updates["Result"] = adminNotes
+            if (status == "resolved" || status == "dismissed") {
+                updates["Resolved_at"] = Timestamp.now()
+            }
 
-            db.collection("reports").document(reportId).update(updates).await()
+            db.collection("Reports").document(reportId).update(updates).await()
             Result.success(true)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // 批量更新项目的所有报告
+    // 批量更新项目的所有报告（处理整个项目）
     suspend fun updateAllReportsForProject(
         projectId: String,
         status: String,
         adminNotes: String = ""
     ): Result<Boolean> {
         return try {
-            val snapshot = db.collection("reports").whereEqualTo("project_id", projectId).get().await()
+            val snapshot = db.collection("Reports")
+                .whereEqualTo("Project_ID", projectId)
+                .get()
+                .await()
+
             val batch = db.batch()
             snapshot.documents.forEach { doc ->
-                val updates = mutableMapOf<String, Any>("status" to status)
-                if (adminNotes.isNotEmpty()) updates["result"] = adminNotes
-                if (status == "resolved") updates["resolved_at"] = Timestamp.now()
+                val updates = mutableMapOf<String, Any>("Status" to status)
+                if (adminNotes.isNotEmpty()) updates["Result"] = adminNotes
+                if (status == "resolved" || status == "dismissed") {
+                    updates["Resolved_at"] = Timestamp.now()
+                }
+                batch.update(doc.reference, updates)
+            }
+            batch.commit().await()
+            Result.success(true)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 智能批量更新：只更新待处理的报告，保持已处理报告的状态
+    suspend fun updatePendingReportsForProject(
+        projectId: String,
+        status: String,
+        adminNotes: String = ""
+    ): Result<Boolean> {
+        return try {
+            val snapshot = db.collection("Reports")
+                .whereEqualTo("Project_ID", projectId)
+                .whereEqualTo("Status", "pending")
+                .get()
+                .await()
+
+            val batch = db.batch()
+            snapshot.documents.forEach { doc ->
+                val updates = mutableMapOf<String, Any>("Status" to status)
+                if (adminNotes.isNotEmpty()) updates["Result"] = adminNotes
+                if (status == "resolved" || status == "dismissed") {
+                    updates["Resolved_at"] = Timestamp.now()
+                }
                 batch.update(doc.reference, updates)
             }
             batch.commit().await()
@@ -238,20 +246,18 @@ class ReportRepository {
         return try {
             // 1️⃣ 先获取项目标题
             val projectDoc = db.collection("projects").document(projectId).get().await()
-            val projectTitle = projectDoc.getString("title")
-                ?: projectDoc.getString("projectTitle")
-                ?: "Unknown Project"
+            val projectTitle = projectDoc.getString("Title") ?: "Unknown Project"
 
-            // 2️⃣ 查询 reports
-            val snapshot = db.collection("reports")
-                .whereEqualTo("project_id", projectId)
+            // 2️⃣ 查询 Reports
+            val snapshot = db.collection("Reports")
+                .whereEqualTo("Project_ID", projectId)
                 .get()
                 .await()
 
-            // 3️⃣ 如果没找到，尝试获取 project_id 是空字符串的 report（兼容旧数据）
+            // 3️⃣ 如果没找到,尝试获取 Project_ID 是空字符串的 report(兼容旧数据)
             val reports = if (snapshot.isEmpty) {
-                db.collection("reports")
-                    .whereEqualTo("project_id", "")
+                db.collection("Reports")
+                    .whereEqualTo("Project_ID", "")
                     .get()
                     .await()
                     .documents
@@ -259,15 +265,16 @@ class ReportRepository {
                         try {
                             Report(
                                 id = doc.id,
-                                projectId = doc.getString("project_id") ?: "",
+                                projectId = doc.getString("Project_ID") ?: "",
                                 projectTitle = projectTitle,
-                                reportedBy = doc.getString("user_id")?.takeIf { it.isNotEmpty() } ?: "Anonymous",
-                                reportCategory = doc.getString("category") ?: "",
-                                description = doc.getString("description") ?: "",
-                                status = doc.getString("status") ?: "pending",
-                                reportedAt = doc.getTimestamp("reported_at"),
-                                resolvedAt = doc.getTimestamp("resolved_at"),
-                                adminNotes = doc.getString("result") ?: ""
+                                reportedBy = doc.getString("User_ID")?.takeIf { it.isNotEmpty() } ?: "Anonymous",
+                                reportCategory = doc.getString("Category") ?: "",
+                                description = doc.getString("Description") ?: "",
+                                status = doc.getString("Status") ?: "pending",
+                                reportedAt = doc.getTimestamp("Reported_at"),
+                                resolvedAt = doc.getTimestamp("Resolved_at"),
+                                adminNotes = doc.getString("Result") ?: "",
+                                isAnonymous = doc.getBoolean("is_anonymous") ?: false
                             )
                         } catch (e: Exception) {
                             null
@@ -278,15 +285,16 @@ class ReportRepository {
                     try {
                         Report(
                             id = doc.id,
-                            projectId = doc.getString("project_id") ?: "",
+                            projectId = doc.getString("Project_ID") ?: "",
                             projectTitle = projectTitle,
-                            reportedBy = doc.getString("user_id")?.takeIf { it.isNotEmpty() } ?: "Anonymous",
-                            reportCategory = doc.getString("category") ?: "",
-                            description = doc.getString("description") ?: "",
-                            status = doc.getString("status") ?: "pending",
-                            reportedAt = doc.getTimestamp("reported_at"),
-                            resolvedAt = doc.getTimestamp("resolved_at"),
-                            adminNotes = doc.getString("result") ?: ""
+                            reportedBy = doc.getString("User_ID")?.takeIf { it.isNotEmpty() } ?: "Anonymous",
+                            reportCategory = doc.getString("Category") ?: "",
+                            description = doc.getString("Description") ?: "",
+                            status = doc.getString("Status") ?: "pending",
+                            reportedAt = doc.getTimestamp("Reported_at"),
+                            resolvedAt = doc.getTimestamp("Resolved_at"),
+                            adminNotes = doc.getString("Result") ?: "",
+                            isAnonymous = doc.getBoolean("is_anonymous") ?: false
                         )
                     } catch (e: Exception) {
                         null
@@ -298,6 +306,22 @@ class ReportRepository {
             val sortedReports = reports.sortedByDescending { it.reportedAt?.seconds ?: 0 }
 
             Result.success(sortedReports)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 检查项目是否有新的待处理报告
+    suspend fun hasNewPendingReports(projectId: String): Result<Boolean> {
+        return try {
+            val snapshot = db.collection("Reports")
+                .whereEqualTo("Project_ID", projectId)
+                .whereEqualTo("Status", "pending")
+                .limit(1)
+                .get()
+                .await()
+
+            Result.success(!snapshot.isEmpty)
         } catch (e: Exception) {
             Result.failure(e)
         }

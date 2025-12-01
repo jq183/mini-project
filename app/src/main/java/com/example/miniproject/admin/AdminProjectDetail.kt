@@ -20,10 +20,12 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.miniproject.UserScreen.Project
 import com.example.miniproject.repository.ProjectRepository
+import com.example.miniproject.repository.AdminRepository
 import com.example.miniproject.ui.theme.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.shape.CircleShape
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,8 +36,22 @@ fun AdminProjectDetail(
     var project by remember { mutableStateOf<Project?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var showManageDialog by remember { mutableStateOf(false) }
+    var currentAdminId by remember { mutableStateOf<String?>(null) }
+    var showSnackbar by remember { mutableStateOf(false) }
+    var snackbarMessage by remember { mutableStateOf("") }
+    var isProcessing by remember { mutableStateOf(false) }
 
     val repository = remember { ProjectRepository() }
+    val adminRepository = remember { AdminRepository() }
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            val admin = adminRepository.getCurrentAdmin()
+            currentAdminId = admin?.adminId
+        }
+    }
 
     LaunchedEffect(projectId) {
         repository.getProjectById(
@@ -48,6 +64,16 @@ fun AdminProjectDetail(
                 isLoading = false
             }
         )
+    }
+
+    LaunchedEffect(showSnackbar) {
+        if (showSnackbar) {
+            snackbarHostState.showSnackbar(
+                message = snackbarMessage,
+                duration = SnackbarDuration.Short
+            )
+            showSnackbar = false
+        }
     }
 
     Scaffold(
@@ -74,7 +100,8 @@ fun AdminProjectDetail(
                     containerColor = BackgroundWhite
                 )
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
         if (isLoading) {
             Box(
@@ -105,7 +132,6 @@ fun AdminProjectDetail(
                     .background(BackgroundGray)
                     .padding(paddingValues)
             ) {
-                // Project Image
                 item {
                     AsyncImage(
                         model = project!!.imageUrl,
@@ -117,7 +143,6 @@ fun AdminProjectDetail(
                     )
                 }
 
-                // Status Badges
                 item {
                     Row(
                         modifier = Modifier
@@ -126,7 +151,6 @@ fun AdminProjectDetail(
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Verification Status
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = if (project!!.isOfficial) SuccessGreen.copy(alpha = 0.1f)
@@ -153,7 +177,6 @@ fun AdminProjectDetail(
                             }
                         }
 
-                        // Warning Status
                         if (project!!.isWarning) {
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
@@ -171,7 +194,7 @@ fun AdminProjectDetail(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "Reported",
+                                        text = "Flagged",
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Medium,
                                         color = ErrorRed
@@ -180,7 +203,32 @@ fun AdminProjectDetail(
                             }
                         }
 
-                        // Category Badge
+                        if (project!!.status == "suspended") {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = WarningOrange.copy(alpha = 0.1f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Block,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = WarningOrange
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Suspended",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = WarningOrange
+                                    )
+                                }
+                            }
+                        }
+
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = when (project!!.category) {
@@ -210,7 +258,6 @@ fun AdminProjectDetail(
                     }
                 }
 
-                // Project Title & Description
                 item {
                     Card(
                         modifier = Modifier
@@ -268,7 +315,6 @@ fun AdminProjectDetail(
                     }
                 }
 
-                // Funding Stats
                 item {
                     Card(
                         modifier = Modifier
@@ -292,7 +338,6 @@ fun AdminProjectDetail(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // Current Amount
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -313,7 +358,6 @@ fun AdminProjectDetail(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // Progress Bar
                             val progress = (project!!.currentAmount / project!!.goalAmount).coerceIn(
                                 0.0, 1.0).toFloat()
 
@@ -329,12 +373,10 @@ fun AdminProjectDetail(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // Stats Row
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceEvenly
                             ) {
-                                // Backers
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
@@ -363,7 +405,6 @@ fun AdminProjectDetail(
                                     )
                                 }
 
-                                // Days Left
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
@@ -392,7 +433,6 @@ fun AdminProjectDetail(
                                     )
                                 }
 
-                                // Percentage
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
@@ -414,7 +454,6 @@ fun AdminProjectDetail(
                     }
                 }
 
-                // Project Info
                 item {
                     Card(
                         modifier = Modifier
@@ -441,12 +480,15 @@ fun AdminProjectDetail(
                             InfoRow("Project ID", project!!.id)
                             InfoRow("Creator", project!!.creatorName)
                             InfoRow("Category", project!!.category)
-                            InfoRow("Status", if (project!!.isOfficial) "Verified" else "Unverified")
+                            InfoRow("Status", project!!.status.capitalize())
+                            InfoRow(
+                                "Verification",
+                                if (project!!.isOfficial) "Verified" else "Unverified"
+                            )
                         }
                     }
                 }
 
-                // Action Buttons
                 item {
                     Column(
                         modifier = Modifier
@@ -454,8 +496,6 @@ fun AdminProjectDetail(
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-
-                        // Manage Button (always show)
                         OutlinedButton(
                             onClick = { showManageDialog = true },
                             modifier = Modifier
@@ -465,19 +505,28 @@ fun AdminProjectDetail(
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = PrimaryBlue
                             ),
-                            border = BorderStroke(1.5.dp, PrimaryBlue)
+                            border = BorderStroke(1.5.dp, PrimaryBlue),
+                            enabled = !isProcessing
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Manage Project",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                            if (isProcessing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = PrimaryBlue,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Manage Project",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
                 }
@@ -488,7 +537,6 @@ fun AdminProjectDetail(
             }
         }
     }
-
 
     if (showManageDialog) {
         AlertDialog(
@@ -533,35 +581,199 @@ fun AdminProjectDetail(
                             "Mark this project as verified and official",
                         color = if (project!!.isOfficial) TextSecondary else SuccessGreen,
                         onClick = {
-                            // TODO: Toggle verification
-                            showManageDialog = false
+                            scope.launch {
+                                if (currentAdminId == null) {
+                                    snackbarMessage = "Admin ID not found"
+                                    showSnackbar = true
+                                    showManageDialog = false
+                                    return@launch
+                                }
+
+                                isProcessing = true
+                                showManageDialog = false
+
+                                if (project!!.isOfficial) {
+                                    repository.unverifyProject(
+                                        projectId = project!!.id,
+                                        adminId = currentAdminId!!,
+                                        onSuccess = {
+                                            // Reload project data
+                                            repository.getProjectById(
+                                                projectId = projectId,
+                                                onSuccess = { proj ->
+                                                    project = proj
+                                                    isProcessing = false
+                                                    snackbarMessage = "Project unverified successfully"
+                                                    showSnackbar = true
+                                                },
+                                                onError = {
+                                                    isProcessing = false
+                                                }
+                                            )
+                                        },
+                                        onError = { e ->
+                                            isProcessing = false
+                                            snackbarMessage = "Failed to unverify: ${e.message}"
+                                            showSnackbar = true
+                                        }
+                                    )
+                                } else {
+                                    repository.verifyProject(
+                                        projectId = project!!.id,
+                                        adminId = currentAdminId!!,
+                                        onSuccess = {
+                                            // Reload project data
+                                            repository.getProjectById(
+                                                projectId = projectId,
+                                                onSuccess = { proj ->
+                                                    project = proj
+                                                    isProcessing = false
+                                                    snackbarMessage = "Project verified successfully"
+                                                    showSnackbar = true
+                                                },
+                                                onError = {
+                                                    isProcessing = false
+                                                }
+                                            )
+                                        },
+                                        onError = { e ->
+                                            isProcessing = false
+                                            snackbarMessage = "Failed to verify: ${e.message}"
+                                            showSnackbar = true
+                                        }
+                                    )
+                                }
+                            }
                         }
                     )
 
-                    // Warning
+                    // Flag/Unflag & Suspend/Reactivate
                     ManagementActionCard(
-                        icon = Icons.Default.Warning,
-                        title = if (project!!.isWarning) "Remove Warning" else "Flag as Warning",
-                        description = if (project!!.isWarning)
-                            "Remove warning badge from this project"
+                        icon = if (project!!.status == "suspended") Icons.Default.CheckCircle else Icons.Default.Warning,
+                        title = if (project!!.status == "suspended") "Reactivate Project" else "Suspend Project",
+                        description = if (project!!.status == "suspended")
+                            "Remove suspension and reactivate project"
                         else
-                            "Add warning badge to alert users",
-                        color = WarningOrange,
+                            "Flag and suspend this project",
+                        color = if (project!!.status == "suspended") SuccessGreen else WarningOrange,
                         onClick = {
-                            // TODO: Toggle warning
-                            showManageDialog = false
+                            scope.launch {
+                                if (currentAdminId == null) {
+                                    snackbarMessage = "Admin ID not found"
+                                    showSnackbar = true
+                                    showManageDialog = false
+                                    return@launch
+                                }
+
+                                isProcessing = true
+                                showManageDialog = false
+
+                                if (project!!.status == "suspended") {
+                                    // Reactivate
+                                    repository.dismissReport(
+                                        projectId = project!!.id,
+                                        adminId = currentAdminId!!,
+                                        reportCount = 0,
+                                        onSuccess = {
+                                            // Also update status to active
+                                            repository.updateProject(
+                                                projectId = project!!.id,
+                                                updates = mapOf("Status" to "active"),
+                                                onSuccess = {
+                                                    // Reload project data
+                                                    repository.getProjectById(
+                                                        projectId = projectId,
+                                                        onSuccess = { proj ->
+                                                            project = proj
+                                                            isProcessing = false
+                                                            snackbarMessage = "Project reactivated successfully"
+                                                            showSnackbar = true
+                                                        },
+                                                        onError = {
+                                                            isProcessing = false
+                                                        }
+                                                    )
+                                                },
+                                                onError = { e ->
+                                                    isProcessing = false
+                                                    snackbarMessage = "Failed to update status: ${e.message}"
+                                                    showSnackbar = true
+                                                }
+                                            )
+                                        },
+                                        onError = { e ->
+                                            isProcessing = false
+                                            snackbarMessage = "Failed to reactivate: ${e.message}"
+                                            showSnackbar = true
+                                        }
+                                    )
+                                } else {
+                                    // Suspend
+                                    repository.suspendProject(
+                                        projectId = project!!.id,
+                                        adminId = currentAdminId!!,
+                                        reportCount = 0,
+                                        onSuccess = {
+                                            // Reload project data
+                                            repository.getProjectById(
+                                                projectId = projectId,
+                                                onSuccess = { proj ->
+                                                    project = proj
+                                                    isProcessing = false
+                                                    snackbarMessage = "Project suspended successfully"
+                                                    showSnackbar = true
+                                                },
+                                                onError = {
+                                                    isProcessing = false
+                                                }
+                                            )
+                                        },
+                                        onError = { e ->
+                                            isProcessing = false
+                                            snackbarMessage = "Failed to suspend: ${e.message}"
+                                            showSnackbar = true
+                                        }
+                                    )
+                                }
+                            }
                         }
                     )
 
-                    // Delete
+                    // Delete Project
                     ManagementActionCard(
                         icon = Icons.Default.Delete,
                         title = "Delete Project",
-                        description = "Permanently remove this project",
+                        description = "Permanently cancel this project",
                         color = ErrorRed,
                         onClick = {
-                            // TODO: Delete project
-                            showManageDialog = false
+                            scope.launch {
+                                if (currentAdminId == null) {
+                                    snackbarMessage = "Admin ID not found"
+                                    showSnackbar = true
+                                    showManageDialog = false
+                                    return@launch
+                                }
+
+                                isProcessing = true
+                                showManageDialog = false
+
+                                repository.deleteProject(
+                                    projectId = project!!.id,
+                                    adminId = currentAdminId!!,
+                                    reason = "Deleted by admin",
+                                    onSuccess = {
+                                        isProcessing = false
+                                        snackbarMessage = "Project deleted successfully"
+                                        showSnackbar = true
+                                        navController.navigateUp()
+                                    },
+                                    onError = { e ->
+                                        isProcessing = false
+                                        snackbarMessage = "Failed to delete: ${e.message}"
+                                        showSnackbar = true
+                                    }
+                                )
+                            }
                         }
                     )
                 }

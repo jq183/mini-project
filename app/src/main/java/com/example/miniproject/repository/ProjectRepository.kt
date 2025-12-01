@@ -5,10 +5,13 @@ import java.text.SimpleDateFormat
 import java.util.*
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 
 class ProjectRepository {
     private val db = FirebaseFirestore.getInstance()
     private val projectsRef = db.collection("projects")
+    private val certificationsRef = db.collection("Certifications")
+    private val actionRepository = AdminActionRepository()
 
     private fun generateProjectId(): String {
         val yearMonth = SimpleDateFormat("yyMM", Locale.getDefault()).format(Date())
@@ -16,12 +19,28 @@ class ProjectRepository {
         return "P$yearMonth$random"
     }
 
+    private suspend fun generateCertificationId(): String {
+        val snapshot = certificationsRef.get().await()
+        val existingIds = snapshot.documents.map { it.id }
+
+        var counter = 1
+        var newId = "C${counter.toString().padStart(3, '0')}"
+
+        while (existingIds.contains(newId)) {
+            counter++
+            newId = "C${counter.toString().padStart(3, '0')}"
+        }
+
+        return newId
+    }
+
     fun getAllProjects(
         onSuccess: (List<Project>) -> Unit,
         onError: (Exception) -> Unit
     ) {
+        val statuses = listOf("active", "suspended")
         projectsRef
-            .whereEqualTo("Status", "active")
+            .whereIn("Status", statuses)
             .get()
             .addOnSuccessListener { snapshot ->
                 val projects = snapshot.documents.mapNotNull { doc ->
@@ -92,58 +111,170 @@ class ProjectRepository {
             .addOnFailureListener(onError)
     }
 
-    // Admin Functions
-    fun verifyProject(
+    // Admin Functions with Action Logging
+    suspend fun verifyProject(
         projectId: String,
+        adminId: String,
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit
     ) {
-        projectsRef
-            .document(projectId)
-            .update("isOfficial", true)
-            .addOnSuccessListener { onSuccess() }
-            .addOnFailureListener(onError)
-    }
+        try {
+            projectsRef
+                .document(projectId)
+                .update("isOfficial", true)
+                .await()
 
-    fun dismissReport(
-        projectId: String,
-        onSuccess: () -> Unit,
-        onError: (Exception) -> Unit
-    ) {
-        projectsRef
-            .document(projectId)
-            .update("isWarning", false)
-            .addOnSuccessListener { onSuccess() }
-            .addOnFailureListener(onError)
-    }
+            val certificationId = generateCertificationId()
 
-    fun suspendProject(
-        projectId: String,
-        onSuccess: () -> Unit,
-        onError: (Exception) -> Unit
-    ) {
-        projectsRef
-            .document(projectId)
-            .update(
-                mapOf(
-                    "status" to "suspended",
-                    "isWarning" to true
-                )
+            val certificationData = hashMapOf(
+                "Project_ID" to projectId,
+                "Admin_ID" to adminId,
+                "Created_at" to Timestamp.now()
             )
-            .addOnSuccessListener { onSuccess() }
-            .addOnFailureListener(onError)
+
+            certificationsRef
+                .document(certificationId)
+                .set(certificationData)
+                .await()
+
+            // 记录操作历史
+            actionRepository.recordAction(
+                actionType = "verified",
+                projectId = projectId,
+                adminId = adminId,
+                description = "Project verified and certified",
+                additionalInfo = "Certification ID: $certificationId"
+            )
+
+            onSuccess()
+        } catch (e: Exception) {
+            onError(e)
+        }
     }
 
-    fun deleteProject(
+    suspend fun unverifyProject(
         projectId: String,
+        adminId: String,
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit
     ) {
-        projectsRef
-            .document(projectId)
-            .update("status", "deleted")
-            .addOnSuccessListener { onSuccess() }
-            .addOnFailureListener(onError)
+        try {
+            projectsRef
+                .document(projectId)
+                .update("isOfficial", false)
+                .await()
+
+            val certifications = certificationsRef
+                .whereEqualTo("Project_ID", projectId)
+                .get()
+                .await()
+
+            certifications.documents.forEach { doc ->
+                doc.reference.delete().await()
+            }
+
+            // 记录操作历史
+            actionRepository.recordAction(
+                actionType = "unverified",
+                projectId = projectId,
+                adminId = adminId,
+                description = "Verification removed from project",
+                additionalInfo = "Certification(s) deleted"
+            )
+
+            onSuccess()
+        } catch (e: Exception) {
+            onError(e)
+        }
+    }
+
+    suspend fun dismissReport(
+        projectId: String,
+        adminId: String,
+        reportCount: Int,
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        try {
+            projectsRef
+                .document(projectId)
+                .update("isWarning", false)
+                .await()
+
+            // 记录操作历史
+            actionRepository.recordAction(
+                actionType = "resolved",
+                projectId = projectId,
+                adminId = adminId,
+                description = "Reports dismissed after review",
+                additionalInfo = "$reportCount report(s) dismissed"
+            )
+
+            onSuccess()
+        } catch (e: Exception) {
+            onError(e)
+        }
+    }
+
+    suspend fun suspendProject(
+        projectId: String,
+        adminId: String,
+        reportCount: Int,
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        try {
+            projectsRef
+                .document(projectId)
+                .update(
+                    mapOf(
+                        "Status" to "suspended",
+                        "isWarning" to true
+                    )
+                )
+                .await()
+
+            // 记录操作历史
+            actionRepository.recordAction(
+                actionType = "suspended",
+                projectId = projectId,
+                adminId = adminId,
+                description = "Project suspended due to reports",
+                additionalInfo = "$reportCount report(s) resulted in suspension"
+            )
+
+            onSuccess()
+        } catch (e: Exception) {
+            onError(e)
+        }
+    }
+
+    suspend fun deleteProject(
+        projectId: String,
+        adminId: String,
+        reason: String,
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        try {
+            projectsRef
+                .document(projectId)
+                .update("Status", "cancelled")
+                .await()
+
+            // 记录操作历史
+            actionRepository.recordAction(
+                actionType = "deleted",
+                projectId = projectId,
+                adminId = adminId,
+                description = "Project deleted by admin",
+                additionalInfo = "Reason: $reason"
+            )
+
+            onSuccess()
+        } catch (e: Exception) {
+            onError(e)
+        }
     }
 
     fun updateProject(
