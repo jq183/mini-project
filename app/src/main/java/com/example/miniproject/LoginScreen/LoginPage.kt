@@ -63,6 +63,9 @@ fun LoginPage(navController: NavController) {
     var isLoading by remember { mutableStateOf(false) }
     var navSignUp by remember { mutableStateOf(false) }
 
+    var emailError by remember { mutableStateOf("") }
+    var pwError by remember { mutableStateOf("") }
+    var loginError by remember { mutableStateOf("") }
     var showForgotPwDialog by remember { mutableStateOf(false) }
     var emailReset by remember { mutableStateOf("") }
     var displayedText by remember { mutableStateOf("") }
@@ -71,6 +74,7 @@ fun LoginPage(navController: NavController) {
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
     val database = FirebaseDatabase.getInstance().reference
+
 
     LaunchedEffect(navSignUp) {
         if (navSignUp) {
@@ -201,14 +205,19 @@ fun LoginPage(navController: NavController) {
 
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = {
+                email = it
+                emailError = ""
+                loginError = ""
+                            },
             label = { Text("Email") },
             placeholder = { Text("Enter your email") },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp),
+                .padding(bottom = if (emailError.isNotEmpty()) 4.dp else 16.dp),
             shape = RoundedCornerShape(8.dp),
             enabled = !isLoading,
+            isError = emailError.isNotEmpty(),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = PrimaryBlue,
                 unfocusedBorderColor = BorderGray,
@@ -217,9 +226,21 @@ fun LoginPage(navController: NavController) {
             )
         )
 
+        if(emailError.isNotEmpty()){
+            Text(
+                text = emailError,
+                color = ErrorRed,
+                fontSize = 12.sp,
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp,bottom = 8.dp)
+            )
+        }
+
         OutlinedTextField(
             value = password,
-            onValueChange = { password = it },
+            onValueChange = {
+                password = it
+                pwError = ""
+                            },
             label = { Text("Password") },
             placeholder = { Text("Enter your password") },
             visualTransformation = if (showPassword) {
@@ -240,9 +261,10 @@ fun LoginPage(navController: NavController) {
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 4.dp),
+                .padding(bottom = if (pwError.isNotEmpty()) 4.dp else 16.dp),
             shape = RoundedCornerShape(8.dp),
             enabled = !isLoading,
+            isError = pwError.isNotEmpty(),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = PrimaryBlue,
                 unfocusedBorderColor = BorderGray,
@@ -250,6 +272,17 @@ fun LoginPage(navController: NavController) {
                 cursorColor = PrimaryBlue
             )
         )
+
+        if(pwError.isNotEmpty()){
+            Text(
+                text = pwError,
+                color = ErrorRed,
+                fontSize = 12.sp,
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp,bottom = 8.dp)
+            )
+        }else{
+            Spacer(modifier = Modifier.height(12.dp))
+        }
 
         TextButton(
             onClick = { emailReset = email
@@ -273,15 +306,54 @@ fun LoginPage(navController: NavController) {
 
         Button(
             onClick = {
-                if (email.isNotEmpty() && password.isNotEmpty()) {
+                emailError = ""
+                pwError = ""
+
+                var hasError = false
+
+                if (email.isEmpty()) {
+                    emailError = "Email is required"
+                    hasError = true
+                } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                    emailError = "Invalid email format"
+                    hasError = true
+                }
+
+                if (password.isEmpty()) {
+                    pwError = "Password is required"
+                    hasError = true
+                }
+
+                if (!hasError) {
                     isLoading = true
                     auth.signInWithEmailAndPassword(email, password)
                         .addOnCompleteListener { task ->
                             isLoading = false
                             if (task.isSuccessful) {
-                               navController.navigate("mainPage")
+                                navController.navigate("mainPage")
                             } else {
-                                Toast.makeText(context, "Login failed: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                                val exception = task.exception
+                                Log.e("LoginError", "Exception: ${exception?.javaClass?.simpleName}")
+                                Log.e("LoginError", "Message: ${exception?.message}")
+
+                                when {
+                                    exception?.message?.contains("password", ignoreCase = true) == true -> {
+                                        pwError = "Incorrect password"
+                                    }
+                                    exception?.message?.contains("user", ignoreCase = true) == true ||
+                                            exception?.message?.contains("email", ignoreCase = true) == true -> {
+                                        emailError = "Account not found"
+                                    }
+                                    exception?.message?.contains("credential", ignoreCase = true) == true -> {
+                                        pwError = "Invalid email or password"
+                                    }
+                                    exception?.message?.contains("disabled", ignoreCase = true) == true -> {
+                                        emailError = "This account has been disabled"
+                                    }
+                                    else -> {
+                                        pwError = "Invalid email or password"
+                                    }
+                                }
                             }
                         }
                 }
@@ -301,6 +373,19 @@ fun LoginPage(navController: NavController) {
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )
+        }
+
+        if (loginError.isNotEmpty()) {
+            Text(
+                text = loginError,
+                color = ErrorRed,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, bottom = 8.dp)
+            )
+        } else {
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
         OutlinedButton(
