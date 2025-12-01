@@ -56,7 +56,7 @@ class ReportRepository {
 
             // 1️⃣ 查出 admin 负责的项目
             val projectSnapshot = db.collection("projects")
-                .whereIn("category", adminResponsible)
+                .whereIn("Category", adminResponsible)
                 .get()
                 .await()
 
@@ -105,7 +105,7 @@ class ReportRepository {
             val projectTitles = mutableMapOf<String, String>()
             projectIds.forEach { projectId ->
                 val projectDoc = db.collection("projects").document(projectId).get().await()
-                val title = projectDoc.getString("title")
+                val title = projectDoc.getString("Title")
                     ?: projectDoc.getString("projectTitle")
                     ?: "Unknown Project"
                 projectTitles[projectId] = title

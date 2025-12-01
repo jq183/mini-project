@@ -21,23 +21,23 @@ class ProjectRepository {
         onError: (Exception) -> Unit
     ) {
         projectsRef
-            .whereEqualTo("status", "active")
+            .whereEqualTo("Status", "active")
             .get()
             .addOnSuccessListener { snapshot ->
                 val projects = snapshot.documents.mapNotNull { doc ->
                     try {
                         Project(
                             id = doc.id,
-                            title = doc.getString("title") ?: "",
-                            description = doc.getString("description") ?: "",
-                            category = doc.getString("category") ?: "",
+                            title = doc.getString("Title") ?: "",
+                            description = doc.getString("Description") ?: "",
+                            category = doc.getString("Category") ?: "",
                             creatorName = doc.getString("creatorName") ?: "",
-                            currentAmount = doc.getDouble("currentAmount") ?: 0.0,
-                            goalAmount = doc.getDouble("goalAmount") ?: 0.0,
+                            currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
+                            goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
                             backers = doc.getLong("backers")?.toInt() ?: 0,
                             daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
                             imageUrl = doc.getString("imageUrl") ?: "",
-                            status = doc.getString("status") ?: "active",
+                            status = doc.getString("Status") ?: "active",
                             createdAt = doc.getTimestamp("createdAt"),
                             isOfficial = doc.getBoolean("isOfficial") ?: false,
                             isWarning = doc.getBoolean("isWarning") ?: false,
@@ -66,16 +66,16 @@ class ProjectRepository {
                     try {
                         val project = Project(
                             id = doc.id,
-                            title = doc.getString("title") ?: "",
-                            description = doc.getString("description") ?: "",
-                            category = doc.getString("category") ?: "",
+                            title = doc.getString("Title") ?: "",
+                            description = doc.getString("Description") ?: "",
+                            category = doc.getString("Category") ?: "",
                             creatorName = doc.getString("creatorName") ?: "",
-                            currentAmount = doc.getDouble("currentAmount") ?: 0.0,
-                            goalAmount = doc.getDouble("goalAmount") ?: 0.0,
+                            currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
+                            goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
                             backers = doc.getLong("backers")?.toInt() ?: 0,
                             daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
                             imageUrl = doc.getString("imageUrl") ?: "",
-                            status = doc.getString("status") ?: "active",
+                            status = doc.getString("Status") ?: "active",
                             createdAt = doc.getTimestamp("createdAt"),
                             isOfficial = doc.getBoolean("isOfficial") ?: false,
                             isWarning = doc.getBoolean("isWarning") ?: false,
