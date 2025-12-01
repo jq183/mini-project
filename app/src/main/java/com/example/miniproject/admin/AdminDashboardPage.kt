@@ -19,13 +19,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.miniproject.repository.AdminRepository
 import com.example.miniproject.ui.theme.*
-import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 data class AdminProfile(
     val email: String = "",
     val name: String = "Admin",
-    val responsibleCategories: List<String> = emptyList()
 )
 
 data class DashboardStats(
@@ -48,28 +50,73 @@ fun AdminDashboardPage(navController: NavController) {
     var adminProfile by remember { mutableStateOf(AdminProfile()) }
 
     val currentRoute = navController.currentBackStackEntry?.destination?.route
+    val repository = remember { AdminRepository() }
+    val db = remember { FirebaseFirestore.getInstance() }
+    val coroutineScope = rememberCoroutineScope()
 
-    // Mock data - Replace with Firebase call
+    // Fetch data from Firebase
     LaunchedEffect(Unit) {
-        // Get current admin info
-        val currentUser = FirebaseAuth.getInstance().currentUser
-        adminProfile = AdminProfile(
-            email = currentUser?.email ?: "admin@example.com",
-            name = "Admin User", // You can fetch this from Firestore
-            responsibleCategories = listOf("Technology", "Education") // Fetch from Firestore
-        )
+        coroutineScope.launch {
+            try {
+                // Get current admin info
+                val admin = repository.getCurrentAdmin()
+                if (admin != null) {
+                    adminProfile = AdminProfile(
+                        email = admin.email,
+                        name = admin.username,
+                    )
+                }
 
-        stats = DashboardStats(
-            totalProjects = 156,
-            activeProjects = 142,
-            certifiedProjects = 23,
-            flaggedProjects = 8,
-            totalReports = 45,
-            pendingReports = 12,
-            resolvedReports = 33,
-            totalFunding = 1250000.0
-        )
-        isLoading = false
+                // Fetch projects data
+                val projectsSnapshot = db.collection("projects").get().await()
+                val allProjects = projectsSnapshot.documents
+
+                val activeProjects = allProjects.filter {
+                    it.getString("Status") == "active"
+                }.size
+
+                val certifiedProjects = allProjects.filter {
+                    it.getBoolean("isOfficial") == true
+                }.size
+
+                val flaggedProjects = allProjects.filter {
+                    it.getBoolean("isWarning") == true
+                }.size
+
+                // Calculate total funding
+                val totalFunding = allProjects.sumOf {
+                    it.getDouble("Current_Amount") ?: 0.0
+                }
+
+                // Fetch reports data
+                val reportsSnapshot = db.collection("Reports").get().await()
+                val allReports = reportsSnapshot.documents
+
+                val pendingReports = allReports.filter {
+                    it.getString("Status") == "Pending"
+                }.size
+
+                val resolvedReports = allReports.filter {
+                    it.getString("Status") == "Resolved"
+                }.size
+
+                stats = DashboardStats(
+                    totalProjects = allProjects.size,
+                    activeProjects = activeProjects,
+                    certifiedProjects = certifiedProjects,
+                    flaggedProjects = flaggedProjects,
+                    totalReports = allReports.size,
+                    pendingReports = pendingReports,
+                    resolvedReports = resolvedReports,
+                    totalFunding = totalFunding
+                )
+
+                isLoading = false
+            } catch (e: Exception) {
+                println("Error fetching dashboard data: ${e.message}")
+                isLoading = false
+            }
+        }
     }
 
     Scaffold(
@@ -216,55 +263,15 @@ fun AdminDashboardPage(navController: NavController) {
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                // Responsible Categories
-                                Text(
-                                    "Responsible Categories:",
-                                    fontSize = 12.sp,
-                                    color = TextSecondary,
-                                    fontWeight = FontWeight.Medium
-                                )
 
-                                Spacer(modifier = Modifier.height(6.dp))
 
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    adminProfile.responsibleCategories.forEach { category ->
-                                        Surface(
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = when (category) {
-                                                "Technology" -> PrimaryBlue.copy(alpha = 0.15f)
-                                                "Charity" -> SuccessGreen.copy(alpha = 0.15f)
-                                                "Education" -> WarningOrange.copy(alpha = 0.15f)
-                                                "Medical" -> ErrorRed.copy(alpha = 0.15f)
-                                                "Art" -> InfoBlue.copy(alpha = 0.15f)
-                                                "Games" -> TextSecondary.copy(alpha = 0.15f)
-                                                else -> TextSecondary.copy(alpha = 0.15f)
-                                            }
-                                        ) {
-                                            Text(
-                                                text = category,
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = when (category) {
-                                                    "Technology" -> PrimaryBlue
-                                                    "Charity" -> SuccessGreen
-                                                    "Education" -> WarningOrange
-                                                    "Medical" -> ErrorRed
-                                                    "Art" -> InfoBlue
-                                                    "Games" -> TextSecondary
-                                                    else -> TextSecondary
-                                                },
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                            )
-                                        }
-                                    }
-                                }
+
+
                             }
                         }
                     }
                 }
+
                 // Quick Stats Summary Card
                 item {
                     Card(
@@ -356,7 +363,9 @@ fun AdminDashboardPage(navController: NavController) {
                             value = stats.activeProjects.toString(),
                             icon = Icons.Default.CheckCircle,
                             color = SuccessGreen,
-                            percentage = (stats.activeProjects.toFloat() / stats.totalProjects * 100).toInt()
+                            percentage = if (stats.totalProjects > 0)
+                                (stats.activeProjects.toFloat() / stats.totalProjects * 100).toInt()
+                            else 0
                         )
                     }
                 }
@@ -372,7 +381,9 @@ fun AdminDashboardPage(navController: NavController) {
                             value = stats.certifiedProjects.toString(),
                             icon = Icons.Default.Verified,
                             color = InfoBlue,
-                            percentage = (stats.certifiedProjects.toFloat() / stats.totalProjects * 100).toInt()
+                            percentage = if (stats.totalProjects > 0)
+                                (stats.certifiedProjects.toFloat() / stats.totalProjects * 100).toInt()
+                            else 0
                         )
                         EnhancedStatCard(
                             modifier = Modifier.weight(1f),
@@ -380,7 +391,9 @@ fun AdminDashboardPage(navController: NavController) {
                             value = stats.flaggedProjects.toString(),
                             icon = Icons.Default.Warning,
                             color = WarningOrange,
-                            percentage = (stats.flaggedProjects.toFloat() / stats.totalProjects * 100).toInt()
+                            percentage = if (stats.totalProjects > 0)
+                                (stats.flaggedProjects.toFloat() / stats.totalProjects * 100).toInt()
+                            else 0
                         )
                     }
                 }
@@ -421,7 +434,9 @@ fun AdminDashboardPage(navController: NavController) {
                             value = stats.pendingReports.toString(),
                             icon = Icons.Default.HourglassEmpty,
                             color = WarningOrange,
-                            percentage = (stats.pendingReports.toFloat() / stats.totalReports * 100).toInt()
+                            percentage = if (stats.totalReports > 0)
+                                (stats.pendingReports.toFloat() / stats.totalReports * 100).toInt()
+                            else 0
                         )
                     }
                 }
@@ -515,8 +530,8 @@ fun AdminDashboardPage(navController: NavController) {
             confirmButton = {
                 Button(
                     onClick = {
-                        FirebaseAuth.getInstance().signOut()
-                        navController.navigate("login") {
+                        repository.signOut()
+                        navController.navigate("adminLogin") {
                             popUpTo(0) { inclusive = true }
                         }
                         showLogoutDialog = false

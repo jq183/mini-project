@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,7 +34,10 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminReportsPage(navController: NavController) {
-    var selectedFilter by remember { mutableStateOf("All") }
+    var selectedStatusFilter by remember { mutableStateOf("All") }
+    var selectedCategory by remember { mutableStateOf("All") }
+    var selectedSort by remember { mutableStateOf("Newest") }
+    var showFilterSheet by remember { mutableStateOf(false) }
     var reports by remember { mutableStateOf<List<Report>>(emptyList()) }
     var groupedReports by remember { mutableStateOf<List<GroupedReport>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -42,46 +46,35 @@ fun AdminReportsPage(navController: NavController) {
     var selectedReport by remember { mutableStateOf<Report?>(null) }
     var showDetailDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var currentAdminResponsible by remember { mutableStateOf<List<String>>(emptyList()) }
 
     val adminRepository = remember { AdminRepository() }
     val reportRepository = remember { ReportRepository() }
     val scope = rememberCoroutineScope()
 
     val currentRoute = navController.currentBackStackEntry?.destination?.route
-    val filters = listOf("All", "Pending", "Resolved", "Dismissed")
+    val statusFilters = listOf("All", "Pending", "Resolved", "Dismissed")
+    val categories = listOf("All", "Technology", "Charity", "Education", "Medical", "Art", "Games")
+    val sortOptions = listOf("Newest", "Oldest", "Most Reports")
 
-    // 从 Firebase 加载数据
+    // 从 Firebase 加载所有数据
     LaunchedEffect(Unit) {
         scope.launch {
             isLoading = true
             errorMessage = null
 
             try {
-                // 获取当前 admin 信息
-                val currentAdmin = adminRepository.getCurrentAdmin()
-
-                if (currentAdmin == null) {
-                    errorMessage = "Admin not logged in"
-                    isLoading = false
-                    return@launch
-                }
-
-                // 保存 admin 负责的类别
-                currentAdminResponsible = currentAdmin.responsible
-
-                // 根据 admin 负责的类别获取报告
-                val result = if (currentAdmin.responsible.isNotEmpty()) {
-                    reportRepository.getReportsForAdmin(currentAdmin.responsible)
-                } else {
-                    // 如果 admin 没有指定负责类别，显示所有报告
-                    reportRepository.getAllReports()
-                }
+                val result = reportRepository.getAllReports()
 
                 result.fold(
                     onSuccess = { fetchedReports ->
                         reports = fetchedReports
+
+                        // Debug: Print project IDs
+                        fetchedReports.groupBy { it.projectId }.forEach { (projectId, reports) ->
+                        }
+
                         groupedReports = reportRepository.groupReportsByProject(fetchedReports)
+
                         isLoading = false
                     },
                     onFailure = { exception ->
@@ -96,15 +89,37 @@ fun AdminReportsPage(navController: NavController) {
         }
     }
 
-    val filteredGroupedReports = remember(selectedFilter, groupedReports) {
-        if (selectedFilter == "All") {
-            groupedReports
-        } else {
-            groupedReports.filter { grouped ->
-                grouped.reports.any {
-                    it.status.equals(selectedFilter, ignoreCase = true)
+    // 过滤和排序逻辑
+    val filteredAndSortedReports = remember(selectedStatusFilter, selectedCategory, selectedSort, groupedReports) {
+        var filtered = groupedReports
+
+        // 按状态过滤
+        if (selectedStatusFilter != "All") {
+            filtered = filtered.filter { grouped ->
+                when (selectedStatusFilter.lowercase()) {
+                    "pending" -> grouped.pendingCount > 0
+                    "resolved" -> grouped.resolvedCount > 0
+                    "dismissed" -> grouped.dismissedCount > 0
+                    else -> true
                 }
             }
+        }
+
+
+        if (selectedCategory != "All") {
+            filtered = filtered.filter { grouped ->
+                // 这里需要从项目获取类别信息
+                // 暂时通过 projectId 匹配
+                true // 需要额外的项目数据才能过滤
+            }
+        }
+
+        // 排序
+        when (selectedSort) {
+            "Newest" -> filtered.sortedByDescending { it.latestReport.reportedAt?.seconds ?: 0 }
+            "Oldest" -> filtered.sortedBy { it.latestReport.reportedAt?.seconds ?: 0 }
+            "Most Reports" -> filtered.sortedByDescending { it.totalReports }
+            else -> filtered
         }
     }
 
@@ -125,27 +140,27 @@ fun AdminReportsPage(navController: NavController) {
                     containerColor = BackgroundWhite
                 ),
                 actions = {
+                    // Filter按钮
+                    IconButton(onClick = { showFilterSheet = true }) {
+                        Icon(
+                            imageVector = Icons.Default.FilterList,
+                            contentDescription = "Filter",
+                            tint = PrimaryBlue
+                        )
+                    }
                     // 刷新按钮
                     IconButton(onClick = {
                         scope.launch {
                             isLoading = true
                             try {
-                                val currentAdmin = adminRepository.getCurrentAdmin()
-                                if (currentAdmin != null) {
-                                    currentAdminResponsible = currentAdmin.responsible
-                                    val result = if (currentAdmin.responsible.isNotEmpty()) {
-                                        reportRepository.getReportsForAdmin(currentAdmin.responsible)
-                                    } else {
-                                        reportRepository.getAllReports()
-                                    }
-                                    result.fold(
-                                        onSuccess = { fetchedReports ->
-                                            reports = fetchedReports
-                                            groupedReports = reportRepository.groupReportsByProject(fetchedReports)
-                                        },
-                                        onFailure = { }
-                                    )
-                                }
+                                val result = reportRepository.getAllReports()
+                                result.fold(
+                                    onSuccess = { fetchedReports ->
+                                        reports = fetchedReports
+                                        groupedReports = reportRepository.groupReportsByProject(fetchedReports)
+                                    },
+                                    onFailure = { }
+                                )
                             } catch (e: Exception) {
                                 errorMessage = e.message
                             }
@@ -174,19 +189,19 @@ fun AdminReportsPage(navController: NavController) {
                 .background(BackgroundGray)
                 .padding(paddingValues)
         ) {
-            // Filter Tabs
+            // Status Filter Tabs
             ScrollableTabRow(
-                selectedTabIndex = filters.indexOf(selectedFilter),
+                selectedTabIndex = statusFilters.indexOf(selectedStatusFilter),
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(BackgroundWhite),
                 containerColor = BackgroundWhite,
                 edgePadding = 16.dp,
                 indicator = { tabPositions ->
-                    if (filters.indexOf(selectedFilter) < tabPositions.size) {
+                    if (statusFilters.indexOf(selectedStatusFilter) < tabPositions.size) {
                         Box(
                             Modifier
-                                .tabIndicatorOffset(tabPositions[filters.indexOf(selectedFilter)])
+                                .tabIndicatorOffset(tabPositions[statusFilters.indexOf(selectedStatusFilter)])
                                 .height(3.dp)
                                 .padding(horizontal = 24.dp)
                                 .background(
@@ -198,10 +213,10 @@ fun AdminReportsPage(navController: NavController) {
                 },
                 divider = {}
             ) {
-                filters.forEach { filter ->
+                statusFilters.forEach { filter ->
                     Tab(
-                        selected = selectedFilter == filter,
-                        onClick = { selectedFilter = filter },
+                        selected = selectedStatusFilter == filter,
+                        onClick = { selectedStatusFilter = filter },
                         modifier = Modifier.padding(horizontal = 8.dp)
                     ) {
                         Column(
@@ -211,8 +226,52 @@ fun AdminReportsPage(navController: NavController) {
                             Text(
                                 text = filter,
                                 fontSize = 15.sp,
-                                fontWeight = if (selectedFilter == filter) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selectedFilter == filter) PrimaryBlue else TextSecondary
+                                fontWeight = if (selectedStatusFilter == filter) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selectedStatusFilter == filter) PrimaryBlue else TextSecondary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Active filters display
+            if (selectedCategory != "All" || selectedSort != "Newest") {
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(BackgroundWhite)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (selectedCategory != "All") {
+                        item {
+                            FilterChip(
+                                selected = true,
+                                onClick = { selectedCategory = "All" },
+                                label = { Text(selectedCategory, fontSize = 13.sp) },
+                                trailingIcon = {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Remove filter",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            )
+                        }
+                    }
+                    if (selectedSort != "Newest") {
+                        item {
+                            FilterChip(
+                                selected = true,
+                                onClick = { selectedSort = "Newest" },
+                                label = { Text(selectedSort, fontSize = 13.sp) },
+                                trailingIcon = {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Remove filter",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             )
                         }
                     }
@@ -259,7 +318,7 @@ fun AdminReportsPage(navController: NavController) {
                         Text("Loading reports...", color = TextSecondary)
                     }
                 }
-            } else if (filteredGroupedReports.isEmpty()) {
+            } else if (filteredAndSortedReports.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -285,13 +344,115 @@ fun AdminReportsPage(navController: NavController) {
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(filteredGroupedReports) { groupedReport ->
+                    items(filteredAndSortedReports) { groupedReport ->
                         GroupedReportCard(
                             groupedReport = groupedReport,
+                            onClick = {
+                                selectedGroupedReport = groupedReport
+                                showReportsDialog = true
+                            },
                             navController = navController
                         )
                     }
                 }
+            }
+        }
+    }
+
+    // Filter Bottom Sheet
+    if (showFilterSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showFilterSheet = false },
+            containerColor = BackgroundWhite
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Text(
+                    "Filter & Sort",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Category Filter
+                Text(
+                    "Category",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(categories) { category ->
+                        FilterChip(
+                            selected = selectedCategory == category,
+                            onClick = { selectedCategory = category },
+                            label = { Text(category) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = PrimaryBlue,
+                                selectedLabelColor = BackgroundWhite
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Sort Options
+                Text(
+                    "Sort By",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                sortOptions.forEach { sort ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { selectedSort = sort }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = selectedSort == sort,
+                            onClick = { selectedSort = sort },
+                            colors = RadioButtonDefaults.colors(
+                                selectedColor = PrimaryBlue
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = sort,
+                            fontSize = 15.sp,
+                            color = TextPrimary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Apply Button
+                Button(
+                    onClick = { showFilterSheet = false },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PrimaryBlue
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Apply Filters")
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -372,17 +533,6 @@ fun AdminReportsPage(navController: NavController) {
                         Text("View Project")
                     }
 
-                    Button(
-                        onClick = {
-                            showReportsDialog = false
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ErrorRed
-                        )
-                    ) {
-                        Text("Handle All")
-                    }
-
                     TextButton(onClick = { showReportsDialog = false }) {
                         Text("Close")
                     }
@@ -450,7 +600,6 @@ fun AdminReportsPage(navController: NavController) {
                     if (selectedReport!!.status == "pending") {
                         Button(
                             onClick = {
-                                // Mark as scam
                                 showDetailDialog = false
                             },
                             colors = ButtonDefaults.buttonColors(
@@ -482,6 +631,7 @@ fun AdminReportsPage(navController: NavController) {
 @Composable
 fun GroupedReportCard(
     groupedReport: GroupedReport,
+    onClick: () -> Unit,
     navController: NavController
 ) {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
@@ -490,7 +640,9 @@ fun GroupedReportCard(
     } ?: "Unknown"
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
@@ -498,7 +650,6 @@ fun GroupedReportCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Header with count badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -531,7 +682,6 @@ fun GroupedReportCard(
                     }
                 }
 
-                // Report count badge
                 Surface(
                     shape = CircleShape,
                     color = ErrorRed
@@ -548,18 +698,18 @@ fun GroupedReportCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Category breakdown
+            // Status breakdown
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                groupedReport.categoryBreakdown.entries.take(3).forEach { (category, count) ->
+                if (groupedReport.pendingCount > 0) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = WarningOrange.copy(alpha = 0.1f)
                     ) {
                         Text(
-                            text = "$category ($count)",
+                            text = "Pending (${groupedReport.pendingCount})",
                             fontSize = 11.sp,
                             color = WarningOrange,
                             fontWeight = FontWeight.Medium,
@@ -567,13 +717,27 @@ fun GroupedReportCard(
                         )
                     }
                 }
-                if (groupedReport.categoryBreakdown.size > 3) {
+                if (groupedReport.resolvedCount > 0) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = SuccessGreen.copy(alpha = 0.1f)
+                    ) {
+                        Text(
+                            text = "Resolved (${groupedReport.resolvedCount})",
+                            fontSize = 11.sp,
+                            color = SuccessGreen,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+                if (groupedReport.dismissedCount > 0) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = TextSecondary.copy(alpha = 0.1f)
                     ) {
                         Text(
-                            text = "+${groupedReport.categoryBreakdown.size - 3}",
+                            text = "Dismissed (${groupedReport.dismissedCount})",
                             fontSize = 11.sp,
                             color = TextSecondary,
                             fontWeight = FontWeight.Medium,
@@ -585,7 +749,6 @@ fun GroupedReportCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Latest report preview
             Text(
                 text = "Latest: ${groupedReport.latestReport.description}",
                 fontSize = 13.sp,
@@ -600,7 +763,6 @@ fun GroupedReportCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Action buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -633,7 +795,6 @@ fun GroupedReportCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Timestamp
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
@@ -657,6 +818,8 @@ fun GroupedReportCard(
     }
 }
 
+
+
 @Composable
 fun IndividualReportItem(
     report: Report,
@@ -679,7 +842,6 @@ fun IndividualReportItem(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Category Icon
             Surface(
                 shape = CircleShape,
                 color = when (report.reportCategory) {

@@ -59,6 +59,7 @@ import com.example.miniproject.UserScreen.MainPage
 import com.example.miniproject.UserScreen.MyProjectsPage
 import com.example.miniproject.UserScreen.ProfilePage
 import com.example.miniproject.admin.AdminLogin
+import com.example.miniproject.admin.ChangePasswordScreen
 import com.example.miniproject.ui.theme.BackgroundWhite
 import com.example.miniproject.ui.theme.PrimaryBlue
 import com.example.miniproject.ui.theme.TextSecondary
@@ -115,6 +116,10 @@ fun AppNavigation() {
         //----admin------
         composable("admin login") {
             AdminLogin(navController)
+        }
+
+        composable("changePassword") {
+            ChangePasswordScreen(navController)
         }
 
         composable ("adminMainPage"){

@@ -30,7 +30,7 @@ import com.example.miniproject.ui.theme.*
 fun AdminMainPage(navController: NavController) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
-    var selectedStatus by remember { mutableStateOf("All") } // Changed from category to status
+    var selectedStatus by remember { mutableStateOf("All") }
     var selectedSort by remember { mutableStateOf("Newest") }
     var showFilterSheet by remember { mutableStateOf(false) }
 
@@ -45,7 +45,7 @@ fun AdminMainPage(navController: NavController) {
     val repository = remember { ProjectRepository() }
     val currentRoute = navController.currentBackStackEntry?.destination?.route
 
-    val statusTabs = listOf("All", "Verified", "Unverified", "Reported")
+    val statusTabs = listOf("All", "Verified", "Unverified", "Flagged")
     val categories = listOf("All", "Technology", "Charity", "Education", "Medical", "Art", "Games")
     val sortOptions = listOf("Most funded", "Newest", "Ending soon", "Popular")
 
@@ -65,20 +65,17 @@ fun AdminMainPage(navController: NavController) {
     val filteredProjects = remember(selectedCategory, selectedStatus, selectedSort, searchQuery, projects) {
         var filtered = projects
 
-        // Filter by category (from bottom sheet filter)
         if (selectedCategory != "All") {
             filtered = filtered.filter { it.category == selectedCategory }
         }
 
-        // Filter by status (from top tabs)
         filtered = when (selectedStatus) {
             "Verified" -> filtered.filter { it.isOfficial }
             "Unverified" -> filtered.filter { !it.isOfficial }
-            "Reported" -> filtered.filter { it.isWarning }
-            else -> filtered // "All"
+            "Flagged" -> filtered.filter { it.isWarning }
+            else -> filtered
         }
 
-        // Search filter
         if (searchQuery.isNotBlank()) {
             filtered = filtered.filter {
                 it.title.contains(searchQuery, ignoreCase = true) ||
@@ -86,7 +83,6 @@ fun AdminMainPage(navController: NavController) {
             }
         }
 
-        // Sort
         when (selectedSort) {
             "Most funded" -> filtered.sortedByDescending { it.currentAmount }
             "Newest" -> filtered
@@ -125,7 +121,6 @@ fun AdminMainPage(navController: NavController) {
                 .background(BackgroundGray)
                 .padding(paddingValues)
         ) {
-            // Search Bar and Filter
             item {
                 Row(
                     modifier = Modifier
@@ -174,7 +169,6 @@ fun AdminMainPage(navController: NavController) {
                 }
             }
 
-            // Status Tabs Row (Replaced Category)
             item {
                 LazyRow(
                     modifier = Modifier
@@ -185,7 +179,6 @@ fun AdminMainPage(navController: NavController) {
                 ) {
                     items(statusTabs) { status ->
                         val isSelected = selectedStatus == status
-                        val isReported = status == "Reported"
 
                         Column(
                             modifier = Modifier
@@ -226,7 +219,6 @@ fun AdminMainPage(navController: NavController) {
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // Project Cards
             if (isLoading) {
                 item {
                     Box(
@@ -271,7 +263,6 @@ fun AdminMainPage(navController: NavController) {
         }
     }
 
-    // Filter Bottom Sheet (Category & Sort only)
     if (showFilterSheet) {
         ModalBottomSheet(
             onDismissRequest = {
@@ -471,13 +462,11 @@ fun AdminProjectCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Header Row - Title + Status Badges
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Title + Category
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = project.title,
@@ -490,7 +479,6 @@ fun AdminProjectCard(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    // Category Badge
                     Surface(
                         shape = RoundedCornerShape(4.dp),
                         color = when (project.category) {
@@ -520,11 +508,9 @@ fun AdminProjectCard(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Status Badges Column
                 Column(
                     horizontalAlignment = Alignment.End
                 ) {
-                    // Official Badge
                     if (project.isOfficial) {
                         Surface(
                             shape = RoundedCornerShape(6.dp),
@@ -574,7 +560,6 @@ fun AdminProjectCard(
                         }
                     }
 
-                    // Warning Badge
                     if (project.isWarning) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(
@@ -589,7 +574,7 @@ fun AdminProjectCard(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Reported",
+                                text = "Flagged",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = ErrorRed
@@ -601,7 +586,6 @@ fun AdminProjectCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Description
             Text(
                 text = project.description,
                 fontSize = 13.sp,
@@ -613,12 +597,10 @@ fun AdminProjectCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Stats Grid
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Funding Progress
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Funding Progress",
@@ -649,7 +631,6 @@ fun AdminProjectCard(
                     )
                 }
 
-                // Backers
                 Column(
                     modifier = Modifier.weight(0.7f),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -677,7 +658,6 @@ fun AdminProjectCard(
                     }
                 }
 
-                // Days Left
                 Column(
                     modifier = Modifier.weight(0.7f),
                     horizontalAlignment = Alignment.End
@@ -708,7 +688,6 @@ fun AdminProjectCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Divider
             HorizontalDivider(
                 thickness = 1.dp,
                 color = BorderGray
@@ -716,25 +695,22 @@ fun AdminProjectCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Action Buttons Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // View Details Button
                 OutlinedButton(
                     onClick = onClick,
                     modifier = Modifier.weight(1f).height(36.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor =if (project.isWarning)ErrorRed
-                                else PrimaryBlue
+                        contentColor = if (project.isWarning) ErrorRed else PrimaryBlue
                     ),
                     border = BorderStroke(1.dp, PrimaryBlue)
                 ) {
                     Icon(
                         imageVector = if (project.isWarning) Icons.Default.Report
-                                        else Icons.Default.Visibility,
+                        else Icons.Default.Visibility,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp)
                     )
@@ -744,7 +720,6 @@ fun AdminProjectCard(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
                     )
-
                 }
             }
         }

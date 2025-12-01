@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.miniproject.repository.Admin
 import com.example.miniproject.repository.GroupedReport
 import com.example.miniproject.repository.Report
 import com.example.miniproject.ui.theme.*
@@ -28,8 +29,8 @@ import com.example.miniproject.repository.ReportRepository
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
-
-
+import com.example.miniproject.repository.ProjectRepository
+import com.example.miniproject.repository.AdminRepository
 data class Tuple4<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,11 +49,16 @@ fun AdminReportDetailPage(
     var showActionDialog by remember { mutableStateOf(false) }
     var selectedAction by remember { mutableStateOf<String?>(null) }
     var showConfirmDialog by remember { mutableStateOf(false) }
+    val projectRepository = remember { ProjectRepository() }
+    val adminRepository = remember { AdminRepository() }
+    var currentAdmin by remember { mutableStateOf<Admin?>(null) }
+
     // Mock data - Replace with Firebase call
     LaunchedEffect(projectId) {
         scope.launch {
             isLoading = true
             errorMessage = null
+            currentAdmin = adminRepository.getCurrentAdmin()
 
             try {
                 val result = reportRepository.getReportsForProject(projectId)
@@ -470,35 +476,80 @@ fun AdminReportDetailPage(
                 scope.launch {
                     isProcessing = true
 
-                    val result = when (selectedAction) {
+                    // 确保有管理员信息
+                    val adminId = currentAdmin?.adminId
+                    if (adminId == null) {
+                        errorMessage = "Admin information not found"
+                        isProcessing = false
+                        return@launch
+                    }
+
+                    when (selectedAction) {
                         "resolve" -> {
-                            reportRepository.updateAllReportsForProject(
+                            // 步骤1: 更新所有报告状态
+                            val reportResult = reportRepository.updateAllReportsForProject(
                                 projectId = projectId,
                                 status = "resolved",
                                 adminNotes = "Admin has reviewed and resolved the issue."
                             )
+
+                            reportResult.fold(
+                                onSuccess = {
+                                    // 步骤2: Suspend 项目并记录操作
+                                    projectRepository.suspendProject(
+                                        projectId = projectId,
+                                        adminId = adminId,
+                                        reportCount = groupedReport?.totalReports ?: 0,
+                                        onSuccess = {
+                                            isProcessing = false
+                                            showConfirmDialog = false
+                                            navController.navigateUp()
+                                        },
+                                        onError = { exception ->
+                                            isProcessing = false
+                                            errorMessage = exception.message ?: "Failed to suspend project"
+                                        }
+                                    )
+                                },
+                                onFailure = { exception ->
+                                    isProcessing = false
+                                    errorMessage = exception.message ?: "Failed to update reports"
+                                }
+                            )
                         }
                         "dismiss" -> {
-                            reportRepository.updateAllReportsForProject(
+                            // 更新报告状态
+                            val reportResult = reportRepository.updateAllReportsForProject(
                                 projectId = projectId,
                                 status = "dismissed",
                                 adminNotes = "Reports dismissed after review."
                             )
-                        }
-                        else -> Result.success(false)
-                    }
 
-                    result.fold(
-                        onSuccess = {
-                            isProcessing = false
-                            showConfirmDialog = false
-                            navController.navigateUp()
-                        },
-                        onFailure = { exception ->
-                            isProcessing = false
-                            errorMessage = exception.message ?: "Failed to update reports"
+                            reportResult.fold(
+                                onSuccess = {
+                                    // 记录操作并移除警告标记
+                                    projectRepository.dismissReport(
+                                        projectId = projectId,
+                                        adminId = adminId,
+                                        reportCount = groupedReport?.totalReports ?: 0,
+                                        onSuccess = {
+                                            isProcessing = false
+                                            showConfirmDialog = false
+                                            navController.navigateUp()
+                                        },
+                                        onError = { exception ->
+                                            isProcessing = false
+                                            errorMessage = exception.message ?: "Failed to dismiss reports"
+                                        }
+                                    )
+                                },
+                                onFailure = { exception ->
+                                    isProcessing = false
+                                    errorMessage = exception.message ?: "Failed to update reports"
+                                }
+                            )
                         }
-                    )
+                    }
                 }
             }
         )
@@ -762,7 +813,8 @@ fun ActionSelectionDialog(
                     title = "Resolve & Flag Project",
                     description = "Mark reports as resolved and add warning badge",
                     color = WarningOrange,
-                    onClick = { onActionSelected("resolve") }
+                    onClick = { onActionSelected("resolve")
+                    }
                 )
 
                 ActionOption(

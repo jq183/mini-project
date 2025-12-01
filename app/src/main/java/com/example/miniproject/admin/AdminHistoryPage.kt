@@ -19,14 +19,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.miniproject.ui.theme.*
+import com.example.miniproject.repository.AdminActionRepository
 import com.google.firebase.Timestamp
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
 data class AdminAction(
     val id: String = "",
     val actionType: String = "",
-    // "verified", "unverified", "flagged", "unflagged", "deleted",
     val projectId: String = "",
     val projectTitle: String = "",
     val adminEmail: String = "",
@@ -38,9 +39,13 @@ data class AdminAction(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminHistoryPage(navController: NavController) {
+    val scope = rememberCoroutineScope()
+    val actionRepository = remember { AdminActionRepository() }
+
     var selectedFilter by remember { mutableStateOf("All") }
     var historyActions by remember { mutableStateOf<List<AdminAction>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     var selectedAction by remember { mutableStateOf<AdminAction?>(null) }
     var showDetailDialog by remember { mutableStateOf(false) }
 
@@ -52,55 +57,29 @@ fun AdminHistoryPage(navController: NavController) {
         "Deletions"
     )
 
-    // Mock data - Replace with Firebase call
+    // 从 Firebase 获取数据
     LaunchedEffect(Unit) {
-        historyActions = listOf(
-            AdminAction(
-                id = "1",
-                actionType = "verified",
-                projectId = "proj1",
-                projectTitle = "Help Children Education Fund",
-                adminEmail = "admin@fundspark.com",
-                description = "Project verified and certified",
-                timestamp = Timestamp.now(),
-                additionalInfo = "Verified organization credentials and bank details"
-            ),
-            AdminAction(
-                id = "4",
-                actionType = "unverified",
-                projectId = "proj4",
-                projectTitle = "Medical Research Fund",
-                adminEmail = "admin@fundspark.com",
-                description = "Verification removed due to expired documents",
-                timestamp = Timestamp(Timestamp.now().seconds - 10800, 0),
-                additionalInfo = "Organization registration expired"
-            ),
-            AdminAction(
-                id = "7",
-                actionType = "unflagged",
-                projectId = "proj3",
-                projectTitle = "Fake Charity Campaign",
-                adminEmail = "admin@fundspark.com",
-                description = "Warning flag removed after compliance",
-                timestamp = Timestamp(Timestamp.now().seconds - 21600, 0),
-                additionalInfo = "Creator provided proper documentation"
+        scope.launch {
+            isLoading = true
+            errorMessage = null
+
+            val result = actionRepository.getAllActions()
+
+            result.fold(
+                onSuccess = { actions ->
+                    historyActions = actions
+                    isLoading = false
+                },
+                onFailure = { exception ->
+                    errorMessage = exception.message ?: "Failed to load action history"
+                    isLoading = false
+                }
             )
-        ).sortedByDescending { it.timestamp?.seconds ?: 0 }
-        isLoading = false
+        }
     }
 
     val filteredActions = remember(selectedFilter, historyActions) {
-        when (selectedFilter) {
-            "All" -> historyActions
-            "Verifications" -> historyActions.filter {
-                it.actionType == "verified" || it.actionType == "unverified"
-            }
-            "Flags & Warnings" -> historyActions.filter {
-                it.actionType == "flagged" || it.actionType == "unflagged"
-            }
-            "Deletions" -> historyActions.filter { it.actionType == "deleted" }
-            else -> historyActions
-        }
+        actionRepository.filterActionsByType(historyActions, selectedFilter)
     }
 
     Scaffold(
@@ -113,6 +92,30 @@ fun AdminHistoryPage(navController: NavController) {
                         fontWeight = FontWeight.Bold,
                         color = PrimaryBlue,
                     )
+                },
+                actions = {
+                    IconButton(onClick = {
+                        scope.launch {
+                            isLoading = true
+                            val result = actionRepository.getAllActions()
+                            result.fold(
+                                onSuccess = { actions ->
+                                    historyActions = actions
+                                    isLoading = false
+                                },
+                                onFailure = { exception ->
+                                    errorMessage = exception.message
+                                    isLoading = false
+                                }
+                            )
+                        }
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = PrimaryBlue
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = BackgroundWhite
@@ -177,14 +180,67 @@ fun AdminHistoryPage(navController: NavController) {
                 }
             }
 
-
-            // History List
+            // Content
             if (isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = PrimaryBlue)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = PrimaryBlue)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Loading action history...", color = TextSecondary)
+                    }
+                }
+            } else if (errorMessage != null) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ErrorOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = ErrorRed
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            errorMessage!!,
+                            fontSize = 16.sp,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    isLoading = true
+                                    errorMessage = null
+                                    val result = actionRepository.getAllActions()
+                                    result.fold(
+                                        onSuccess = { actions ->
+                                            historyActions = actions
+                                            isLoading = false
+                                        },
+                                        onFailure = { exception ->
+                                            errorMessage = exception.message
+                                            isLoading = false
+                                        }
+                                    )
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PrimaryBlue
+                            )
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Retry")
+                        }
+                    }
                 }
             } else if (filteredActions.isEmpty()) {
                 Box(
@@ -204,6 +260,14 @@ fun AdminHistoryPage(navController: NavController) {
                             fontSize = 16.sp,
                             color = TextSecondary
                         )
+                        if (selectedFilter != "All") {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "Try changing the filter",
+                                fontSize = 14.sp,
+                                color = TextSecondary.copy(alpha = 0.7f)
+                            )
+                        }
                     }
                 }
             } else {
@@ -243,29 +307,6 @@ fun AdminHistoryPage(navController: NavController) {
 }
 
 @Composable
-fun HistoryStat(
-    count: Int,
-    label: String,
-    color: androidx.compose.ui.graphics.Color
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "$count",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = color
-        )
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = TextSecondary
-        )
-    }
-}
-
-@Composable
 fun ActionHistoryCard(
     action: AdminAction,
     onClick: () -> Unit,
@@ -277,8 +318,8 @@ fun ActionHistoryCard(
     val (icon, color, actionLabel) = when (action.actionType) {
         "verified" -> Triple(Icons.Default.Verified, SuccessGreen, "Verified")
         "unverified" -> Triple(Icons.Default.RemoveCircle, TextSecondary, "Unverified")
-        "flagged" -> Triple(Icons.Default.Warning, WarningOrange, "Flagged")
-        "unflagged" -> Triple(Icons.Default.CheckCircle, InfoBlue, "Unflagged")
+        "flagged", "suspended" -> Triple(Icons.Default.Warning, WarningOrange, "Flagged/Suspended")
+        "unflagged", "resolved" -> Triple(Icons.Default.CheckCircle, InfoBlue, "Resolved")
         "deleted" -> Triple(Icons.Default.Delete, ErrorRed, "Deleted")
         else -> Triple(Icons.Default.Info, TextSecondary, "Action")
     }
@@ -300,7 +341,6 @@ fun ActionHistoryCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                // Icon
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -317,7 +357,6 @@ fun ActionHistoryCard(
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Content
                 Column(modifier = Modifier.weight(1f)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -358,17 +397,13 @@ fun ActionHistoryCard(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-
             HorizontalDivider(thickness = 1.dp, color = BorderGray)
-
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Footer
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -432,8 +467,8 @@ fun ActionDetailDialog(
     val (icon, color, actionLabel) = when (action.actionType) {
         "verified" -> Triple(Icons.Default.Verified, SuccessGreen, "Project Verified")
         "unverified" -> Triple(Icons.Default.RemoveCircle, TextSecondary, "Verification Removed")
-        "flagged" -> Triple(Icons.Default.Warning, WarningOrange, "Project Flagged")
-        "unflagged" -> Triple(Icons.Default.CheckCircle, InfoBlue, "Flag Removed")
+        "flagged", "suspended" -> Triple(Icons.Default.Warning, WarningOrange, "Project Flagged/Suspended")
+        "unflagged", "resolved" -> Triple(Icons.Default.CheckCircle, InfoBlue, "Flag Removed/Resolved")
         "deleted" -> Triple(Icons.Default.Delete, ErrorRed, "Project Deleted")
         else -> Triple(Icons.Default.Info, TextSecondary, "Action Performed")
     }
@@ -495,7 +530,6 @@ fun ActionDetailDialog(
                         lineHeight = 18.sp
                     )
                 }
-
             }
         },
         confirmButton = {
