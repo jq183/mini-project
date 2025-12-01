@@ -15,55 +15,20 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.miniproject.repository.AdminRepository
+import com.example.miniproject.repository.GroupedReport
+import com.example.miniproject.repository.Report
+import com.example.miniproject.repository.ReportRepository
 import com.example.miniproject.ui.theme.*
-import com.google.firebase.Timestamp
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
-
-// 单个举报
-data class Report(
-    val id: String = "",
-    val projectId: String = "",
-    val projectTitle: String = "",
-    val reportedBy: String = "",
-    val reportCategory: String = "",
-    val description: String = "",
-    val status: String = "pending",
-    val reportedAt: Timestamp? = null,
-    val resolvedAt: Timestamp? = null,
-    val adminNotes: String = ""
-)
-
-// 合并后的举报组
-data class GroupedReport(
-    val projectId: String,
-    val projectTitle: String,
-    val reports: List<Report>, // 所有针对这个项目的举报
-    val totalReports: Int,
-    val latestReport: Report,
-    val categoryBreakdown: Map<String, Int> // 每个类别的举报数量
-) {
-    val mostCommonCategory: String
-        get() = categoryBreakdown.maxByOrNull { it.value }?.key ?: "Unknown"
-
-    val status: String
-        get() {
-            val statuses = reports.map { it.status }
-            return when {
-                statuses.all { it == "resolved" } -> "resolved"
-                statuses.all { it == "dismissed" } -> "dismissed"
-                statuses.any { it == "pending" } -> "pending"
-                else -> "pending"
-            }
-        }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,93 +41,70 @@ fun AdminReportsPage(navController: NavController) {
     var showReportsDialog by remember { mutableStateOf(false) }
     var selectedReport by remember { mutableStateOf<Report?>(null) }
     var showDetailDialog by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var currentAdminResponsible by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    val adminRepository = remember { AdminRepository() }
+    val reportRepository = remember { ReportRepository() }
+    val scope = rememberCoroutineScope()
 
     val currentRoute = navController.currentBackStackEntry?.destination?.route
     val filters = listOf("All", "Pending", "Resolved", "Dismissed")
 
-    // Mock data - Replace with Firebase call
+    // 从 Firebase 加载数据
     LaunchedEffect(Unit) {
-        // 模拟多个用户举报同一个项目
-        reports = listOf(
-            Report(
-                id = "1",
-                projectId = "proj1",
-                projectTitle = "AI Learning Platform",
-                reportedBy = "user123",
-                reportCategory = "Scam",
-                description = "This project seems suspicious with unrealistic promises",
-                status = "pending",
-                reportedAt = Timestamp.now()
-            ),
-            Report(
-                id = "2",
-                projectId = "proj1",
-                projectTitle = "AI Learning Platform",
-                reportedBy = "user456",
-                reportCategory = "Fake Information",
-                description = "The creator's credentials don't check out",
-                status = "pending",
-                reportedAt = Timestamp(Timestamp.now().seconds - 3600, 0)
-            ),
-            Report(
-                id = "3",
-                projectId = "proj1",
-                projectTitle = "AI Learning Platform",
-                reportedBy = "Anonymous",
-                reportCategory = "Scam",
-                description = "Similar project was reported before",
-                status = "pending",
-                reportedAt = Timestamp(Timestamp.now().seconds - 7200, 0)
-            ),
-            Report(
-                id = "4",
-                projectId = "proj2",
-                projectTitle = "Help Cancer Patients",
-                reportedBy = "user789",
-                reportCategory = "Fake Information",
-                description = "Contact information doesn't match hospital records",
-                status = "pending",
-                reportedAt = Timestamp.now()
-            ),
-            Report(
-                id = "5",
-                projectId = "proj2",
-                projectTitle = "Help Cancer Patients",
-                reportedBy = "user999",
-                reportCategory = "Inappropriate Content",
-                description = "Using stock photos instead of real patients",
-                status = "pending",
-                reportedAt = Timestamp(Timestamp.now().seconds - 1800, 0)
-            )
-        )
+        scope.launch {
+            isLoading = true
+            errorMessage = null
 
-        // 按项目分组
-        groupedReports = reports
-            .groupBy { it.projectId }
-            .map { (projectId, projectReports) ->
-                val categoryBreakdown = projectReports
-                    .groupBy { it.reportCategory }
-                    .mapValues { it.value.size }
+            try {
+                // 获取当前 admin 信息
+                val currentAdmin = adminRepository.getCurrentAdmin()
 
-                GroupedReport(
-                    projectId = projectId,
-                    projectTitle = projectReports.first().projectTitle,
-                    reports = projectReports.sortedByDescending { it.reportedAt?.seconds ?: 0 },
-                    totalReports = projectReports.size,
-                    latestReport = projectReports.maxByOrNull { it.reportedAt?.seconds ?: 0 }!!,
-                    categoryBreakdown = categoryBreakdown
+                if (currentAdmin == null) {
+                    errorMessage = "Admin not logged in"
+                    isLoading = false
+                    return@launch
+                }
+
+                // 保存 admin 负责的类别
+                currentAdminResponsible = currentAdmin.responsible
+
+                // 根据 admin 负责的类别获取报告
+                val result = if (currentAdmin.responsible.isNotEmpty()) {
+                    reportRepository.getReportsForAdmin(currentAdmin.responsible)
+                } else {
+                    // 如果 admin 没有指定负责类别，显示所有报告
+                    reportRepository.getAllReports()
+                }
+
+                result.fold(
+                    onSuccess = { fetchedReports ->
+                        reports = fetchedReports
+                        groupedReports = reportRepository.groupReportsByProject(fetchedReports)
+                        isLoading = false
+                    },
+                    onFailure = { exception ->
+                        errorMessage = exception.message ?: "Failed to load reports"
+                        isLoading = false
+                    }
                 )
+            } catch (e: Exception) {
+                errorMessage = e.message ?: "An error occurred"
+                isLoading = false
             }
-            .sortedByDescending { it.totalReports }
-
-        isLoading = false
+        }
     }
 
     val filteredGroupedReports = remember(selectedFilter, groupedReports) {
         if (selectedFilter == "All") {
             groupedReports
         } else {
-            groupedReports.filter { it.status.equals(selectedFilter, ignoreCase = true) }
+            groupedReports.filter { grouped ->
+                grouped.reports.any {
+                    it.status.equals(selectedFilter, ignoreCase = true)
+                }
+            }
         }
     }
 
@@ -170,16 +112,53 @@ fun AdminReportsPage(navController: NavController) {
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "Reports Management",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryBlue,
-                    )
+                    Column {
+                        Text(
+                            text = "Reports Management",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryBlue,
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = BackgroundWhite
-                )
+                ),
+                actions = {
+                    // 刷新按钮
+                    IconButton(onClick = {
+                        scope.launch {
+                            isLoading = true
+                            try {
+                                val currentAdmin = adminRepository.getCurrentAdmin()
+                                if (currentAdmin != null) {
+                                    currentAdminResponsible = currentAdmin.responsible
+                                    val result = if (currentAdmin.responsible.isNotEmpty()) {
+                                        reportRepository.getReportsForAdmin(currentAdmin.responsible)
+                                    } else {
+                                        reportRepository.getAllReports()
+                                    }
+                                    result.fold(
+                                        onSuccess = { fetchedReports ->
+                                            reports = fetchedReports
+                                            groupedReports = reportRepository.groupReportsByProject(fetchedReports)
+                                        },
+                                        onFailure = { }
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                errorMessage = e.message
+                            }
+                            isLoading = false
+                        }
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = PrimaryBlue
+                        )
+                    }
+                }
             )
         },
         bottomBar = {
@@ -240,13 +219,45 @@ fun AdminReportsPage(navController: NavController) {
                 }
             }
 
+            // 显示错误信息
+            if (errorMessage != null) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = ErrorRed.copy(alpha = 0.1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = null,
+                            tint = ErrorRed
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = errorMessage!!,
+                            color = ErrorRed,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+
             // Grouped Reports List
             if (isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = PrimaryBlue)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = PrimaryBlue)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Loading reports...", color = TextSecondary)
+                    }
                 }
             } else if (filteredGroupedReports.isEmpty()) {
                 Box(
@@ -363,7 +374,6 @@ fun AdminReportsPage(navController: NavController) {
 
                     Button(
                         onClick = {
-                            // Handle all reports at once
                             showReportsDialog = false
                         },
                         colors = ButtonDefaults.buttonColors(
@@ -595,7 +605,6 @@ fun GroupedReportCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-
                 OutlinedButton(
                     onClick = {
                         navController.navigate("adminReportDetail/${groupedReport.projectId}")
@@ -606,7 +615,7 @@ fun GroupedReportCard(
                         containerColor = Color.White,
                         contentColor = ErrorRed
                     ),
-                    border = BorderStroke(1.dp, ErrorRed) // 红色边框
+                    border = BorderStroke(1.dp, ErrorRed)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Report,
@@ -620,7 +629,6 @@ fun GroupedReportCard(
                         fontWeight = FontWeight.Medium
                     )
                 }
-
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -675,9 +683,8 @@ fun IndividualReportItem(
             Surface(
                 shape = CircleShape,
                 color = when (report.reportCategory) {
-                    "Scam" -> ErrorRed.copy(alpha = 0.1f)
-                    "Fake Information" -> WarningOrange.copy(alpha = 0.1f)
-                    "Inappropriate Content" -> InfoBlue.copy(alpha = 0.1f)
+                    "scam" -> ErrorRed.copy(alpha = 0.1f)
+                    "inappropriate_content" -> WarningOrange.copy(alpha = 0.1f)
                     else -> TextSecondary.copy(alpha = 0.1f)
                 },
                 modifier = Modifier.size(40.dp)
@@ -687,9 +694,8 @@ fun IndividualReportItem(
                         imageVector = Icons.Default.Report,
                         contentDescription = null,
                         tint = when (report.reportCategory) {
-                            "Scam" -> ErrorRed
-                            "Fake Information" -> WarningOrange
-                            "Inappropriate Content" -> InfoBlue
+                            "scam" -> ErrorRed
+                            "inappropriate_content" -> WarningOrange
                             else -> TextSecondary
                         },
                         modifier = Modifier.size(20.dp)
@@ -701,7 +707,7 @@ fun IndividualReportItem(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = report.reportCategory,
+                    text = report.reportCategory.replace("_", " ").capitalize(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary

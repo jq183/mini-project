@@ -182,6 +182,12 @@ fun AdminLogin(navCollection: NavController) {
                             return@Button
                         }
 
+                        if (password.isBlank()) {
+                            generalErrorMessage = "Password cannot be empty"
+                            showGeneralError = true
+                            return@Button
+                        }
+
                         if (!adminEmail.endsWith("@js.com")) {
                             emailError = true
                             return@Button
@@ -189,7 +195,7 @@ fun AdminLogin(navCollection: NavController) {
 
                         isLoading = true
                         coroutineScope.launch {
-                            val result = repository.adminLogin(adminEmail)
+                            val result = repository.adminLogin(adminEmail, password)
 
                             isLoading = false
 

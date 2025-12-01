@@ -139,7 +139,7 @@ fun AdminMainPage(navController: NavController) {
                         onValueChange = { searchQuery = it },
                         textStyle = TextStyle(fontSize = 14.sp),
                         modifier = Modifier.weight(0.85f).height(50.dp),
-                        placeholder = { Text("title/creator name/project ID") },
+                        placeholder = { Text("Search") },
                         leadingIcon = {
                             Icon(
                                 Icons.Default.Search,

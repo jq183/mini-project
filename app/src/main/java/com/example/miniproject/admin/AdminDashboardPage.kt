@@ -93,13 +93,6 @@ fun AdminDashboardPage(navController: NavController) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Refresh data */ }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            tint = PrimaryBlue
-                        )
-                    }
                     IconButton(onClick = { showLogoutDialog = true }) {
                         Icon(
                             imageVector = Icons.Default.Logout,
@@ -341,15 +334,6 @@ fun AdminDashboardPage(navController: NavController) {
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
-                        TextButton(onClick = { navController.navigate("admin_projects") }) {
-                            Text("View All", color = PrimaryBlue, fontSize = 14.sp)
-                            Icon(
-                                imageVector = Icons.Default.ArrowForward,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = PrimaryBlue
-                            )
-                        }
                     }
                 }
 
@@ -415,15 +399,6 @@ fun AdminDashboardPage(navController: NavController) {
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
-                        TextButton(onClick = { navController.navigate("admin_reports") }) {
-                            Text("Manage", color = PrimaryBlue, fontSize = 14.sp)
-                            Icon(
-                                imageVector = Icons.Default.ArrowForward,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = PrimaryBlue
-                            )
-                        }
                     }
                 }
 
