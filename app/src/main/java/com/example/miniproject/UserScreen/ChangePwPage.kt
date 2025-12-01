@@ -98,7 +98,6 @@ fun ChangePwPage(navController: NavController) {
         ) {
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Info Card for Google users
             if (!hasPasswordProvider) {
                 Card(
                     modifier = Modifier
