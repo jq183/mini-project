@@ -53,6 +53,8 @@ data class Project(
     val isWarning: Boolean = false,
     val isComplete: Boolean = false
 )
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainPage(navController: NavController) {
@@ -76,8 +78,8 @@ fun MainPage(navController: NavController) {
     val categories = listOf("All", "Technology", "Charity", "Education", "Medical", "Art", "Games")
     val sortOptions = listOf("Most funded", "Newest", "Ending soon", "Popular")
 
-
     LaunchedEffect(Unit) {
+
         repository.getAllProjects(
             onSuccess = { proj ->
                 projects = proj

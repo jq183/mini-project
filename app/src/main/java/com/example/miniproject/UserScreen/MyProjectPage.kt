@@ -22,6 +22,10 @@ import androidx.navigation.NavController
 import com.example.miniproject.BottomNavigationBar
 import com.example.miniproject.ui.theme.*
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,82 +38,134 @@ fun MyProjectsPage(navController: NavController) {
     val currentRoute = navController.currentBackStackEntry?.destination?.route
     val auth = FirebaseAuth.getInstance()
     val currentUserId = auth.currentUser?.uid ?: ""
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val tabs = listOf("My Projects", "Backed")
 
-    val myProjects = remember {
-        listOf(
-            Project(
-                id = "1",
-                title = "Smart Home IoT System",
-                description = "Revolutionary smart home system with AI-powered automation and energy management",
-                category = "Technology",
-                goalAmount = 50000.0,
-                currentAmount = 35000.0,
-                backers = 142,
-                daysLeft = 15,
-                creatorId = currentUserId,
-                creatorName = "Tech Innovators",
-                status = "active"
-            ),
-            Project(
-                id = "2",
-                title = "Educational Platform for Rural Schools",
-                description = "Bringing quality education to underserved communities through digital learning",
-                category = "Education",
-                goalAmount = 30000.0,
-                currentAmount = 28500.0,
-                backers = 89,
-                daysLeft = 8,
-                creatorId = currentUserId,
-                creatorName = "EduTech Foundation",
-                status = "active"
-            ),
-            Project(
-                id = "3",
-                title = "Community Health Clinic",
-                description = "Building a free healthcare facility for low-income families",
-                category = "Medical",
-                goalAmount = 100000.0,
-                currentAmount = 100000.0,
-                backers = 256,
-                daysLeft = 0,
-                creatorId = currentUserId,
-                creatorName = "Healthcare Heroes",
-                status = "completed"
-            )
-        )
-    }
+    var myProjects by remember { mutableStateOf<List<Project>>(emptyList()) }
+    var backedProjects by remember { mutableStateOf<List<Project>>(emptyList()) }
 
-    val backedProjects = remember {
-        listOf(
-            Project(
-                id = "10",
-                title = "Eco-Friendly Packaging Solutions",
-                description = "Sustainable packaging alternatives for businesses",
-                category = "Technology",
-                goalAmount = 40000.0,
-                currentAmount = 32000.0,
-                backers = 145,
-                daysLeft = 18,
-                creatorId = "other_user",
-                creatorName = "Green Tech Co",
-                status = "active"
-            ),
-            Project(
-                id = "11",
-                title = "Mobile Game: Space Adventure",
-                description = "Exciting space exploration game for mobile devices",
-                category = "Games",
-                goalAmount = 25000.0,
-                currentAmount = 18750.0,
-                backers = 98,
-                daysLeft = 12,
-                creatorId = "other_user",
-                creatorName = "Indie Game Studio",
-                status = "active"
-            )
-        )
+    val db = FirebaseFirestore.getInstance()
+
+    LaunchedEffect(currentUserId, selectedTab) {
+        android.util.Log.d("MyProjects", "=== Debug Start ===")
+        android.util.Log.d("MyProjects", "Current User ID: '$currentUserId'")
+        android.util.Log.d("MyProjects", "User ID length: ${currentUserId.length}")
+        android.util.Log.d("MyProjects", "Selected Tab: $selectedTab")
+
+        if (currentUserId.isEmpty()) {
+            android.util.Log.e("MyProjects", "User ID is empty!")
+            isLoading = false
+            return@LaunchedEffect
+        }
+
+        isLoading = true
+        try {
+            if (selectedTab == 0) {
+                val allSnapshot = db.collection("projects")
+                    .get()
+                    .await()
+
+                android.util.Log.d("MyProjects", "Total projects in DB: ${allSnapshot.documents.size}")
+
+                allSnapshot.documents.forEach { doc ->
+                    val userId = doc.getString("User_ID")
+                    android.util.Log.d("MyProjects", "Project: ${doc.id}, User_ID: '$userId'")
+                }
+
+                val snapshot = db.collection("projects")
+                    .whereEqualTo("User_ID", currentUserId)
+                    .get()
+                    .await()
+
+                android.util.Log.d("MyProjects", "Filtered projects: ${snapshot.documents.size}")
+
+                myProjects = snapshot.documents.mapNotNull { doc ->
+                    try {
+                        android.util.Log.d("MyProjects", "Mapping project: ${doc.id}")
+                        val project = Project(
+                            id = doc.id,
+                            title = doc.getString("Title") ?: "",
+                            description = doc.getString("Description") ?: "",
+                            category = doc.getString("Category") ?: "",
+                            goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
+                            currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
+                            backers = doc.getLong("backers")?.toInt() ?: 0,
+                            daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
+                            creatorId = doc.getString("User_ID") ?: "",
+                            creatorName = doc.getString("creatorName") ?: "",
+                            status = doc.getString("Status") ?: "active"
+                        )
+                        android.util.Log.d("MyProjects", "Successfully mapped: ${project.title}")
+                        project
+                    } catch (e: Exception) {
+                        android.util.Log.e("MyProjects", "Error mapping project ${doc.id}: ${e.message}", e)
+                        null
+                    }
+                }
+
+                android.util.Log.d("MyProjects", "Final myProjects count: ${myProjects.size}")
+
+            } else {
+                val backingsSnapshot = db.collection("backings")
+                    .whereEqualTo("userId", currentUserId)
+                    .get()
+                    .await()
+
+                android.util.Log.d("MyProjects", "Backings found: ${backingsSnapshot.documents.size}")
+
+                val projectIds = backingsSnapshot.documents.mapNotNull {
+                    it.getString("projectId")
+                }.distinct()
+
+                android.util.Log.d("MyProjects", "Unique project IDs: ${projectIds.size}")
+
+                if (projectIds.isNotEmpty()) {
+                    val allProjects = mutableListOf<Project>()
+                    projectIds.chunked(10).forEach { chunk ->
+                        val projectsSnapshot = db.collection("projects")
+                            .whereIn("__name__", chunk)
+                            .get()
+                            .await()
+
+                        val projects = projectsSnapshot.documents.mapNotNull { doc ->
+                            try {
+                                Project(
+                                    id = doc.id,
+                                    title = doc.getString("Title") ?: "",
+                                    description = doc.getString("Description") ?: "",
+                                    category = doc.getString("Category") ?: "",
+                                    goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
+                                    currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
+                                    backers = doc.getLong("backers")?.toInt() ?: 0,
+                                    daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
+                                    creatorId = doc.getString("User_ID") ?: "",
+                                    creatorName = doc.getString("creatorName") ?: "",
+                                    status = doc.getString("Status") ?: "active"
+                                )
+                            } catch (e: Exception) {
+                                android.util.Log.e("MyProjects", "Error mapping backed project: ${e.message}", e)
+                                null
+                            }
+                        }
+                        allProjects.addAll(projects)
+                    }
+                    backedProjects = allProjects
+                    android.util.Log.d("MyProjects", "Final backed projects count: ${backedProjects.size}")
+                } else {
+                    backedProjects = emptyList()
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MyProjects", "Error loading projects: ${e.message}", e)
+            e.printStackTrace()
+            scope.launch {
+                snackbarHostState.showSnackbar("Failed to load projects: ${e.message}")
+            }
+        }
+        isLoading = false
+        android.util.Log.d("MyProjects", "=== Debug End ===")
     }
 
     Scaffold(

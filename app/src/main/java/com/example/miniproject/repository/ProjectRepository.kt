@@ -21,23 +21,24 @@ class ProjectRepository {
         onError: (Exception) -> Unit
     ) {
         projectsRef
-            .whereEqualTo("status", "active")
+            .whereEqualTo("Status", "active")
             .get()
             .addOnSuccessListener { snapshot ->
                 val projects = snapshot.documents.mapNotNull { doc ->
                     try {
                         Project(
                             id = doc.id,
-                            title = doc.getString("title") ?: "",
-                            description = doc.getString("description") ?: "",
-                            category = doc.getString("category") ?: "",
+                            title = doc.getString("Title") ?: "",  // 改成 "Title"
+                            description = doc.getString("Description") ?: "",  // 改成 "Description"
+                            category = doc.getString("Category") ?: "",  // 改成 "Category"
                             creatorName = doc.getString("creatorName") ?: "",
-                            currentAmount = doc.getDouble("currentAmount") ?: 0.0,
-                            goalAmount = doc.getDouble("goalAmount") ?: 0.0,
+                            creatorId = doc.getString("User_ID") ?: "",  // 添加这个
+                            currentAmount = doc.getDouble("Current_Amount") ?: 0.0,  // 改成 "Current_Amount"
+                            goalAmount = doc.getDouble("Target_Amount") ?: 0.0,  // 改成 "Target_Amount"
                             backers = doc.getLong("backers")?.toInt() ?: 0,
                             daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
                             imageUrl = doc.getString("imageUrl") ?: "",
-                            status = doc.getString("status") ?: "active",
+                            status = doc.getString("Status") ?: "active",  // 改成 "Status"
                             createdAt = doc.getTimestamp("createdAt"),
                             isOfficial = doc.getBoolean("isOfficial") ?: false,
                             isWarning = doc.getBoolean("isWarning") ?: false,
@@ -66,16 +67,17 @@ class ProjectRepository {
                     try {
                         val project = Project(
                             id = doc.id,
-                            title = doc.getString("title") ?: "",
-                            description = doc.getString("description") ?: "",
-                            category = doc.getString("category") ?: "",
+                            title = doc.getString("Title") ?: "",  // 改成 "Title"
+                            description = doc.getString("Description") ?: "",  // 改成 "Description"
+                            category = doc.getString("Category") ?: "",  // 改成 "Category"
                             creatorName = doc.getString("creatorName") ?: "",
-                            currentAmount = doc.getDouble("currentAmount") ?: 0.0,
-                            goalAmount = doc.getDouble("goalAmount") ?: 0.0,
+                            creatorId = doc.getString("User_ID") ?: "",  // 添加这个
+                            currentAmount = doc.getDouble("Current_Amount") ?: 0.0,  // 改成 "Current_Amount"
+                            goalAmount = doc.getDouble("Target_Amount") ?: 0.0,  // 改成 "Target_Amount"
                             backers = doc.getLong("backers")?.toInt() ?: 0,
                             daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
                             imageUrl = doc.getString("imageUrl") ?: "",
-                            status = doc.getString("status") ?: "active",
+                            status = doc.getString("Status") ?: "active",  // 改成 "Status"
                             createdAt = doc.getTimestamp("createdAt"),
                             isOfficial = doc.getBoolean("isOfficial") ?: false,
                             isWarning = doc.getBoolean("isWarning") ?: false,
@@ -92,7 +94,6 @@ class ProjectRepository {
             .addOnFailureListener(onError)
     }
 
-    // Admin Functions
     fun verifyProject(
         projectId: String,
         onSuccess: () -> Unit,
@@ -126,7 +127,7 @@ class ProjectRepository {
             .document(projectId)
             .update(
                 mapOf(
-                    "status" to "suspended",
+                    "Status" to "suspended",  // 改成 "Status"
                     "isWarning" to true
                 )
             )
@@ -141,7 +142,7 @@ class ProjectRepository {
     ) {
         projectsRef
             .document(projectId)
-            .update("status", "deleted")
+            .update("Status", "deleted")  // 改成 "Status"
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener(onError)
     }
