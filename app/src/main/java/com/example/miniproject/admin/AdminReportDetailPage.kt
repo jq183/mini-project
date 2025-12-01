@@ -21,8 +21,11 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.miniproject.repository.GroupedReport
+import com.example.miniproject.repository.Report
 import com.example.miniproject.ui.theme.*
-import com.google.firebase.Timestamp
+import com.example.miniproject.repository.ReportRepository
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -35,83 +38,57 @@ fun AdminReportDetailPage(
     navController: NavController,
     projectId: String
 ) {
+    val scope = rememberCoroutineScope()
+    val reportRepository = remember { ReportRepository() }
+
     var groupedReport by remember { mutableStateOf<GroupedReport?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isProcessing by remember { mutableStateOf(false) }
     var showActionDialog by remember { mutableStateOf(false) }
     var selectedAction by remember { mutableStateOf<String?>(null) }
     var showConfirmDialog by remember { mutableStateOf(false) }
-
     // Mock data - Replace with Firebase call
     LaunchedEffect(projectId) {
-        // Fetch all reports for this project
-        val mockReports = listOf(
-            Report(
-                id = "1",
-                projectId = projectId,
-                projectTitle = "AI Learning Platform",
-                reportedBy = "user123",
-                reportCategory = "Scam",
-                description = "This project seems suspicious with unrealistic promises. The creator claims to deliver results in 2 weeks which is impossible for this type of project.",
-                status = "pending",
-                reportedAt = Timestamp.now()
-            ),
-            Report(
-                id = "2",
-                projectId = projectId,
-                projectTitle = "AI Learning Platform",
-                reportedBy = "user456",
-                reportCategory = "Fake Information",
-                description = "The creator's credentials don't check out. I couldn't find any record of their claimed educational background.",
-                status = "pending",
-                reportedAt = Timestamp(Timestamp.now().seconds - 3600, 0)
-            ),
-            Report(
-                id = "3",
-                projectId = projectId,
-                projectTitle = "AI Learning Platform",
-                reportedBy = "Anonymous",
-                reportCategory = "Scam",
-                description = "Similar project was reported before on another platform. Same person, different project name.",
-                status = "pending",
-                reportedAt = Timestamp(Timestamp.now().seconds - 7200, 0)
-            ),
-            Report(
-                id = "4",
-                projectId = projectId,
-                projectTitle = "AI Learning Platform",
-                reportedBy = "user789",
-                reportCategory = "Fake Information",
-                description = "Contact information doesn't match company records. Phone number is disconnected.",
-                status = "pending",
-                reportedAt = Timestamp(Timestamp.now().seconds - 10800, 0)
-            ),
-            Report(
-                id = "5",
-                projectId = projectId,
-                projectTitle = "AI Learning Platform",
-                reportedBy = "user999",
-                reportCategory = "Inappropriate Content",
-                description = "Using stock photos and claiming they are real team members.",
-                status = "pending",
-                reportedAt = Timestamp(Timestamp.now().seconds - 14400, 0)
-            )
-        )
+        scope.launch {
+            isLoading = true
+            errorMessage = null
 
-        val categoryBreakdown = mockReports
-            .groupBy { it.reportCategory }
-            .mapValues { it.value.size }
+            try {
+                val result = reportRepository.getReportsForProject(projectId)
 
-        groupedReport = GroupedReport(
-            projectId = projectId,
-            projectTitle = mockReports.first().projectTitle,
-            reports = mockReports.sortedByDescending { it.reportedAt?.seconds ?: 0 },
-            totalReports = mockReports.size,
-            latestReport = mockReports.maxByOrNull { it.reportedAt?.seconds ?: 0 }!!,
-            categoryBreakdown = categoryBreakdown
-        )
+                result.fold(
+                    onSuccess = { fetchedReports ->
+                        if (fetchedReports.isNotEmpty()) {
+                            val categoryBreakdown = fetchedReports
+                                .groupBy { it.reportCategory }
+                                .mapValues { it.value.size }
 
-        isLoading = false
+                            groupedReport = GroupedReport(
+                                projectId = projectId,
+                                projectTitle = fetchedReports.first().projectTitle,
+                                reports = fetchedReports.sortedByDescending { it.reportedAt?.seconds ?: 0 },
+                                totalReports = fetchedReports.size,
+                                latestReport = fetchedReports.maxByOrNull { it.reportedAt?.seconds ?: 0 }!!,
+                                categoryBreakdown = categoryBreakdown
+                            )
+                        } else {
+                            errorMessage = "No reports found for this project"
+                        }
+                        isLoading = false
+                    },
+                    onFailure = { exception ->
+                        errorMessage = exception.message ?: "Failed to load reports"
+                        isLoading = false
+                    }
+                )
+            } catch (e: Exception) {
+                errorMessage = e.message ?: "An error occurred"
+                isLoading = false
+            }
+        }
     }
+
 
     Scaffold(
         topBar = {
@@ -139,56 +116,39 @@ fun AdminReportDetailPage(
             )
         },
         bottomBar = {
-            // Action buttons at bottom
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shadowElevation = 8.dp,
-                color = BackgroundWhite
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+            if (groupedReport != null && groupedReport!!.reports.any { it.status == "pending" }) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shadowElevation = 8.dp,
+                    color = BackgroundWhite
                 ) {
-                    OutlinedButton(
-                        onClick = {
-                            navController.navigate("adminProjectDetail/$projectId")
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = PrimaryBlue
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Visibility,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("View Project", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                    }
-
                     Button(
                         onClick = { showActionDialog = true },
                         modifier = Modifier
-                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(16.dp)
                             .height(50.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = ErrorRed
-                        )
+                        ),
+                        enabled = !isProcessing
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Gavel,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Take Action", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        if (isProcessing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = BackgroundWhite,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Gavel,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Take Action", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -201,24 +161,44 @@ fun AdminReportDetailPage(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = PrimaryBlue)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = PrimaryBlue)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Loading report details...", color = TextSecondary)
+                }
             }
-        } else if (groupedReport == null) {
+        } else if (errorMessage != null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.ErrorOutline,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
-                        tint = TextSecondary
+                        tint = ErrorRed
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Reports not found", fontSize = 16.sp, color = TextSecondary)
+                    Text(
+                        errorMessage!!,
+                        fontSize = 16.sp,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = { navController.navigateUp() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PrimaryBlue
+                        )
+                    ) {
+                        Text("Go Back")
+                    }
                 }
             }
         } else {
@@ -266,7 +246,6 @@ fun AdminReportDetailPage(
                                     )
                                 }
 
-                                // Total reports badge
                                 Surface(
                                     shape = CircleShape,
                                     color = ErrorRed
@@ -293,6 +272,7 @@ fun AdminReportDetailPage(
                     }
                 }
 
+
                 // Summary Statistics
                 item {
                     Card(
@@ -311,7 +291,6 @@ fun AdminReportDetailPage(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // Category breakdown
                             Text(
                                 "Categories Reported:",
                                 fontSize = 14.sp,
@@ -336,16 +315,15 @@ fun AdminReportDetailPage(
                                         Surface(
                                             shape = CircleShape,
                                             color = when (category) {
-                                                "Scam" -> ErrorRed.copy(alpha = 0.1f)
-                                                "Fake Information" -> WarningOrange.copy(alpha = 0.1f)
-                                                "Inappropriate Content" -> InfoBlue.copy(alpha = 0.1f)
+                                                "scam" -> ErrorRed.copy(alpha = 0.1f)
+                                                "inappropriate_content" -> WarningOrange.copy(alpha = 0.1f)
                                                 else -> TextSecondary.copy(alpha = 0.1f)
                                             },
                                             modifier = Modifier.size(8.dp)
                                         ) {}
                                         Spacer(modifier = Modifier.width(10.dp))
                                         Text(
-                                            text = category,
+                                            text = category.replace("_", " ").capitalize(),
                                             fontSize = 14.sp,
                                             color = TextPrimary
                                         )
@@ -354,9 +332,8 @@ fun AdminReportDetailPage(
                                     Surface(
                                         shape = RoundedCornerShape(8.dp),
                                         color = when (category) {
-                                            "Scam" -> ErrorRed.copy(alpha = 0.1f)
-                                            "Fake Information" -> WarningOrange.copy(alpha = 0.1f)
-                                            "Inappropriate Content" -> InfoBlue.copy(alpha = 0.1f)
+                                            "scam" -> ErrorRed.copy(alpha = 0.1f)
+                                            "inappropriate_content" -> WarningOrange.copy(alpha = 0.1f)
                                             else -> TextSecondary.copy(alpha = 0.1f)
                                         }
                                     ) {
@@ -365,9 +342,8 @@ fun AdminReportDetailPage(
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = when (category) {
-                                                "Scam" -> ErrorRed
-                                                "Fake Information" -> WarningOrange
-                                                "Inappropriate Content" -> InfoBlue
+                                                "scam" -> ErrorRed
+                                                "inappropriate_content" -> WarningOrange
                                                 else -> TextSecondary
                                             },
                                             modifier = Modifier.padding(
@@ -380,12 +356,9 @@ fun AdminReportDetailPage(
                             }
 
                             Spacer(modifier = Modifier.height(16.dp))
-
                             HorizontalDivider(thickness = 1.dp, color = BorderGray)
-
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // Most common category
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
@@ -396,7 +369,8 @@ fun AdminReportDetailPage(
                                     color = TextSecondary
                                 )
                                 Text(
-                                    groupedReport!!.mostCommonCategory,
+                                    groupedReport!!.mostCommonCategory.replace("_", " ")
+                                        .capitalize(),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = ErrorRed
@@ -405,7 +379,48 @@ fun AdminReportDetailPage(
                         }
                     }
                 }
-                
+
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = BackgroundWhite),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Project Details",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                                TextButton(
+                                    onClick = { navController.navigate("adminProjectDetail/$projectId") }
+                                ) {
+                                    Text("View Full", fontSize = 13.sp)
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowForward,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Mock project info - replace with actual data
+                            ProjectInfoRow("Category", "Technology")
+                            ProjectInfoRow("Creator", "John Doe")
+                            ProjectInfoRow("Status", "Active")
+                            ProjectInfoRow("Funding", "RM 5,000 / RM 10,000")
+                        }
+                    }
+                }
 
                 // Individual Reports Header
                 item {
@@ -433,82 +448,13 @@ fun AdminReportDetailPage(
 
     // Action Selection Dialog
     if (showActionDialog) {
-        AlertDialog(
-            onDismissRequest = { showActionDialog = false },
-            title = {
-                Column {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Gavel,
-                            contentDescription = null,
-                            tint = ErrorRed,
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                "Take Action on Reports",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp
-                            )
-                            Text(
-                                "${groupedReport?.totalReports} reports to handle",
-                                fontSize = 14.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    }
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Resolve & Flag (Recommended)
-                    ActionOption(
-                        icon = Icons.Default.CheckCircle,
-                        title = "Resolve & Flag Project",
-                        description = "Mark reports as resolved and add warning badge",
-                        color = WarningOrange,
-                        onClick = {
-                            selectedAction = "resolve"
-                            showActionDialog = false
-                            showConfirmDialog = true
-                        }
-                    )
-
-                    // Delete Project
-                    ActionOption(
-                        icon = Icons.Default.Delete,
-                        title = "Delete Project",
-                        description = "Permanently remove this project and all data",
-                        color = ErrorRed,
-                        onClick = {
-                            selectedAction = "delete"
-                            showActionDialog = false
-                            showConfirmDialog = true
-                        }
-                    )
-
-                    // Dismiss Reports
-                    ActionOption(
-                        icon = Icons.Default.Cancel,
-                        title = "Dismiss Reports",
-                        description = "Mark all reports as invalid",
-                        color = TextSecondary,
-                        onClick = {
-                            selectedAction = "dismiss"
-                            showActionDialog = false
-                            showConfirmDialog = true
-                        }
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showActionDialog = false }) {
-                    Text("Cancel", color = PrimaryBlue)
-                }
+        ActionSelectionDialog(
+            groupedReport = groupedReport,
+            onDismiss = { showActionDialog = false },
+            onActionSelected = { action ->
+                selectedAction = action
+                showActionDialog = false
+                showConfirmDialog = true
             }
         )
     }
@@ -516,113 +462,43 @@ fun AdminReportDetailPage(
 
     // Confirmation Dialog
     if (showConfirmDialog && selectedAction != null) {
-        val (actionTitle, actionDescription, actionColor, actionNote) = when (selectedAction) {
-            "resolve" -> Tuple4(
-                "Resolve & Flag Project",
-                "This will mark all reports as resolved AND add a warning badge to the project",
-                WarningOrange,
-                "The project will remain visible but flagged for users"
-            )
+        ActionConfirmationDialog(
+            action = selectedAction!!,
+            groupedReport = groupedReport,
+            onDismiss = { showConfirmDialog = false },
+            onConfirm = {
+                scope.launch {
+                    isProcessing = true
 
-            "delete" -> Tuple4(
-                "Delete Project",
-                "This will permanently delete the project and all its data",
-                ErrorRed,
-                "This action cannot be undone"
-            )
-
-            "dismiss" -> Tuple4(
-                "Dismiss Reports",
-                "This will dismiss all reports as invalid",
-                TextSecondary,
-                "The project will not be flagged"
-            )
-
-            else -> Tuple4("", "", Color.Gray, "")
-        }
-
-        AlertDialog(
-            onDismissRequest = { showConfirmDialog = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = actionColor,
-                    modifier = Modifier.size(56.dp)
-                )
-            },
-            title = {
-                Text(
-                    "Confirm: $actionTitle",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        actionDescription,
-                        fontSize = 15.sp,
-                        color = TextPrimary
-                    )
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = actionColor.copy(alpha = 0.1f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = null,
-                                tint = actionColor,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                actionNote,
-                                fontSize = 13.sp,
-                                color = actionColor,
-                                fontWeight = FontWeight.Medium
+                    val result = when (selectedAction) {
+                        "resolve" -> {
+                            reportRepository.updateAllReportsForProject(
+                                projectId = projectId,
+                                status = "resolved",
+                                adminNotes = "Admin has reviewed and resolved the issue."
                             )
                         }
+                        "dismiss" -> {
+                            reportRepository.updateAllReportsForProject(
+                                projectId = projectId,
+                                status = "dismissed",
+                                adminNotes = "Reports dismissed after review."
+                            )
+                        }
+                        else -> Result.success(false)
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Project: ${groupedReport?.projectTitle}",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
+                    result.fold(
+                        onSuccess = {
+                            isProcessing = false
+                            showConfirmDialog = false
+                            navController.navigateUp()
+                        },
+                        onFailure = { exception ->
+                            isProcessing = false
+                            errorMessage = exception.message ?: "Failed to update reports"
+                        }
                     )
-                    Text(
-                        "Reports affected: ${groupedReport?.totalReports}",
-                        fontSize = 14.sp,
-                        color = TextSecondary
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        // TODO: Implement action
-                        // If resolve: Also flag the project
-                        showConfirmDialog = false
-                        navController.navigateUp()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = actionColor
-                    )
-                ) {
-                    Text("Confirm", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showConfirmDialog = false }) {
-                    Text("Cancel", color = TextSecondary)
                 }
             }
         )
@@ -630,148 +506,148 @@ fun AdminReportDetailPage(
 }
 
 @Composable
-    fun DetailedReportCard(report: Report) {
-        val dateFormat = SimpleDateFormat("EEEE, MMM dd, yyyy 'at' HH:mm", Locale.getDefault())
-        val reportDate = report.reportedAt?.toDate()?.let { dateFormat.format(it) } ?: "Unknown"
+fun DetailedReportCard(report: Report) {
+    val dateFormat = SimpleDateFormat("EEEE, MMM dd, yyyy 'at' HH:mm", Locale.getDefault())
+    val reportDate = report.reportedAt?.toDate()?.let { dateFormat.format(it) } ?: "Unknown"
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = BackgroundWhite
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Header
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = BackgroundWhite
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = when (report.reportCategory) {
-                                "Scam" -> ErrorRed.copy(alpha = 0.1f)
-                                "Fake Information" -> WarningOrange.copy(alpha = 0.1f)
-                                "Inappropriate Content" -> InfoBlue.copy(alpha = 0.1f)
-                                else -> TextSecondary.copy(alpha = 0.1f)
-                            },
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.Report,
-                                    contentDescription = null,
-                                    tint = when (report.reportCategory) {
-                                        "Scam" -> ErrorRed
-                                        "Fake Information" -> WarningOrange
-                                        "Inappropriate Content" -> InfoBlue
-                                        else -> TextSecondary
-                                    },
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = report.reportCategory,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                            Text(
-                                text = "by ${report.reportedBy}",
-                                fontSize = 13.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    }
-
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = when (report.status) {
-                            "resolved" -> SuccessGreen.copy(alpha = 0.1f)
-                            "dismissed" -> TextSecondary.copy(alpha = 0.1f)
-                            else -> WarningOrange.copy(alpha = 0.1f)
-                        }
+                        shape = CircleShape,
+                        color = when (report.reportCategory) {
+                            "Scam" -> ErrorRed.copy(alpha = 0.1f)
+                            "Fake Information" -> WarningOrange.copy(alpha = 0.1f)
+                            "Inappropriate Content" -> InfoBlue.copy(alpha = 0.1f)
+                            else -> TextSecondary.copy(alpha = 0.1f)
+                        },
+                        modifier = Modifier.size(40.dp)
                     ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Report,
+                                contentDescription = null,
+                                tint = when (report.reportCategory) {
+                                    "Scam" -> ErrorRed
+                                    "Fake Information" -> WarningOrange
+                                    "Inappropriate Content" -> InfoBlue
+                                    else -> TextSecondary
+                                },
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
                         Text(
-                            text = report.status.uppercase(),
-                            fontSize = 11.sp,
+                            text = report.reportCategory,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = when (report.status) {
-                                "resolved" -> SuccessGreen
-                                "dismissed" -> TextSecondary
-                                else -> WarningOrange
-                            },
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "by ${report.reportedBy}",
+                            fontSize = 13.sp,
+                            color = TextSecondary
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Description
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp),
-                    color = SurfaceGray
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            "Report Description:",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextSecondary
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = report.description,
-                            fontSize = 14.sp,
-                            color = TextPrimary,
-                            lineHeight = 20.sp
-                        )
+                    color = when (report.status) {
+                        "resolved" -> SuccessGreen.copy(alpha = 0.1f)
+                        "dismissed" -> TextSecondary.copy(alpha = 0.1f)
+                        else -> WarningOrange.copy(alpha = 0.1f)
                     }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Footer
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Schedule,
-                            contentDescription = "Time",
-                            modifier = Modifier.size(14.dp),
-                            tint = TextSecondary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = reportDate,
-                            fontSize = 12.sp,
-                            color = TextSecondary
-                        )
-                    }
-
                     Text(
-                        text = "ID: ${report.id}",
+                        text = report.status.uppercase(),
                         fontSize = 11.sp,
-                        color = TextLight
+                        fontWeight = FontWeight.Bold,
+                        color = when (report.status) {
+                            "resolved" -> SuccessGreen
+                            "dismissed" -> TextSecondary
+                            else -> WarningOrange
+                        },
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Description
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                color = SurfaceGray
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        "Report Description:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = report.description,
+                        fontSize = 14.sp,
+                        color = TextPrimary,
+                        lineHeight = 20.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Footer
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = "Time",
+                        modifier = Modifier.size(14.dp),
+                        tint = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = reportDate,
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
+                }
+
+                Text(
+                    text = "ID: ${report.id}",
+                    fontSize = 11.sp,
+                    color = TextLight
+                )
+            }
         }
     }
+}
 
 
 
@@ -843,3 +719,192 @@ fun ActionOption(
     }
 }
 
+@Composable
+fun ActionSelectionDialog(
+    groupedReport: GroupedReport?,
+    onDismiss: () -> Unit,
+    onActionSelected: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Gavel,
+                        contentDescription = null,
+                        tint = ErrorRed,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            "Take Action on Reports",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                        Text(
+                            "${groupedReport?.totalReports} reports to handle",
+                            fontSize = 14.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ActionOption(
+                    icon = Icons.Default.CheckCircle,
+                    title = "Resolve & Flag Project",
+                    description = "Mark reports as resolved and add warning badge",
+                    color = WarningOrange,
+                    onClick = { onActionSelected("resolve") }
+                )
+
+                ActionOption(
+                    icon = Icons.Default.Cancel,
+                    title = "Dismiss Reports",
+                    description = "Mark all reports as invalid",
+                    color = TextSecondary,
+                    onClick = { onActionSelected("dismiss") }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = PrimaryBlue)
+            }
+        }
+    )
+}
+
+@Composable
+fun ActionConfirmationDialog(
+    action: String,
+    groupedReport: GroupedReport?,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val (actionTitle, actionDescription, actionColor, actionNote) = when (action) {
+        "resolve" -> Tuple4(
+            "Resolve & Flag Project",
+            "This will mark all reports as resolved AND add a warning badge to the project",
+            WarningOrange,
+            "The project will remain visible but flagged for users"
+        )
+        "dismiss" -> Tuple4(
+            "Dismiss Reports",
+            "This will dismiss all reports as invalid",
+            TextSecondary,
+            "The project will not be flagged"
+        )
+        else -> Tuple4("", "", Color.Gray, "")
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = actionColor,
+                modifier = Modifier.size(56.dp)
+            )
+        },
+        title = {
+            Text(
+                "Confirm: $actionTitle",
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    actionDescription,
+                    fontSize = 15.sp,
+                    color = TextPrimary
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = actionColor.copy(alpha = 0.1f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = actionColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            actionNote,
+                            fontSize = 13.sp,
+                            color = actionColor,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Project: ${groupedReport?.projectTitle}",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Text(
+                    "Reports affected: ${groupedReport?.totalReports}",
+                    fontSize = 14.sp,
+                    color = TextSecondary
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = actionColor
+                )
+            ) {
+                Text("Confirm", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Cancel", color = TextSecondary)
+            }
+        }
+    )
+}
+
+@Composable
+fun ProjectInfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            color = TextSecondary
+        )
+        Text(
+            text = value,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextPrimary
+        )
+    }
+}

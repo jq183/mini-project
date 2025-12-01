@@ -315,13 +315,15 @@ fun AdminProjectDetail(
 
                             // Progress Bar
                             val progress = (project!!.currentAmount / project!!.goalAmount).coerceIn(
-                                0.0, 1.0)
+                                0.0, 1.0).toFloat()
+
                             LinearProgressIndicator(
+                                progress = progress,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(8.dp)
                                     .clip(RoundedCornerShape(4.dp)),
-                                color = if (progress >= 1f) SuccessGreen else PrimaryBlue,
+                                color = PrimaryBlue,
                                 trackColor = BorderGray
                             )
 

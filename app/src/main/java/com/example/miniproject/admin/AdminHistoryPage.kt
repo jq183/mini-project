@@ -27,14 +27,12 @@ data class AdminAction(
     val id: String = "",
     val actionType: String = "",
     // "verified", "unverified", "flagged", "unflagged", "deleted",
-    // "report_resolved", "report_dismissed", "report_flagged_project"
     val projectId: String = "",
     val projectTitle: String = "",
     val adminEmail: String = "",
     val description: String = "",
     val timestamp: Timestamp? = null,
     val additionalInfo: String = "",
-    val reportDetails: String? = null // For report-related actions
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,7 +48,6 @@ fun AdminHistoryPage(navController: NavController) {
     val filters = listOf(
         "All",
         "Verifications",
-        "Reports Handled",
         "Flags & Warnings",
         "Deletions"
     )
@@ -69,28 +66,6 @@ fun AdminHistoryPage(navController: NavController) {
                 additionalInfo = "Verified organization credentials and bank details"
             ),
             AdminAction(
-                id = "2",
-                actionType = "report_resolved",
-                projectId = "proj2",
-                projectTitle = "Tech Startup Funding",
-                adminEmail = "admin@fundspark.com",
-                description = "Scam report resolved - Project is legitimate",
-                timestamp = Timestamp(Timestamp.now().seconds - 3600, 0),
-                additionalInfo = "Report dismissed after thorough verification",
-                reportDetails = "Reporter: user123 | Category: Scam | 3 total reports"
-            ),
-            AdminAction(
-                id = "3",
-                actionType = "flagged",
-                projectId = "proj3",
-                projectTitle = "Fake Charity Campaign",
-                adminEmail = "admin@fundspark.com",
-                description = "Project flagged as suspicious",
-                timestamp = Timestamp(Timestamp.now().seconds - 7200, 0),
-                additionalInfo = "Multiple scam reports with valid evidence",
-                reportDetails = "5 reports | Categories: Scam (3), Fake Info (2)"
-            ),
-            AdminAction(
                 id = "4",
                 actionType = "unverified",
                 projectId = "proj4",
@@ -99,28 +74,6 @@ fun AdminHistoryPage(navController: NavController) {
                 description = "Verification removed due to expired documents",
                 timestamp = Timestamp(Timestamp.now().seconds - 10800, 0),
                 additionalInfo = "Organization registration expired"
-            ),
-            AdminAction(
-                id = "5",
-                actionType = "deleted",
-                projectId = "proj5",
-                projectTitle = "Confirmed Scam Project",
-                adminEmail = "admin@fundspark.com",
-                description = "Project permanently deleted",
-                timestamp = Timestamp(Timestamp.now().seconds - 14400, 0),
-                additionalInfo = "Confirmed fraud after investigation",
-                reportDetails = "15 reports | All users refunded"
-            ),
-            AdminAction(
-                id = "6",
-                actionType = "report_dismissed",
-                projectId = "proj6",
-                projectTitle = "Community Garden Project",
-                adminEmail = "admin@fundspark.com",
-                description = "Report dismissed - False claim",
-                timestamp = Timestamp(Timestamp.now().seconds - 18000, 0),
-                additionalInfo = "Reporter had personal conflict with creator",
-                reportDetails = "Reporter: Anonymous | Category: Fake Information"
             ),
             AdminAction(
                 id = "7",
@@ -142,9 +95,6 @@ fun AdminHistoryPage(navController: NavController) {
             "Verifications" -> historyActions.filter {
                 it.actionType == "verified" || it.actionType == "unverified"
             }
-            "Reports Handled" -> historyActions.filter {
-                it.actionType == "report_resolved" || it.actionType == "report_dismissed"
-            }
             "Flags & Warnings" -> historyActions.filter {
                 it.actionType == "flagged" || it.actionType == "unflagged"
             }
@@ -163,15 +113,6 @@ fun AdminHistoryPage(navController: NavController) {
                         fontWeight = FontWeight.Bold,
                         color = PrimaryBlue,
                     )
-                },
-                actions = {
-                    IconButton(onClick = { /* TODO: Export history */ }) {
-                        Icon(
-                            imageVector = Icons.Default.Download,
-                            contentDescription = "Export",
-                            tint = PrimaryBlue
-                        )
-                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = BackgroundWhite
@@ -336,8 +277,6 @@ fun ActionHistoryCard(
     val (icon, color, actionLabel) = when (action.actionType) {
         "verified" -> Triple(Icons.Default.Verified, SuccessGreen, "Verified")
         "unverified" -> Triple(Icons.Default.RemoveCircle, TextSecondary, "Unverified")
-        "report_resolved" -> Triple(Icons.Default.CheckCircle, SuccessGreen, "Report Resolved")
-        "report_dismissed" -> Triple(Icons.Default.Cancel, TextSecondary, "Report Dismissed")
         "flagged" -> Triple(Icons.Default.Warning, WarningOrange, "Flagged")
         "unflagged" -> Triple(Icons.Default.CheckCircle, InfoBlue, "Unflagged")
         "deleted" -> Triple(Icons.Default.Delete, ErrorRed, "Deleted")
@@ -420,32 +359,6 @@ fun ActionHistoryCard(
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    // Report details if available
-                    if (action.reportDetails != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(ErrorRed.copy(alpha = 0.05f), RoundedCornerShape(6.dp))
-                                .padding(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Report,
-                                contentDescription = "Report",
-                                modifier = Modifier.size(14.dp),
-                                tint = ErrorRed
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = action.reportDetails,
-                                fontSize = 11.sp,
-                                color = ErrorRed,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
                 }
             }
 
@@ -519,8 +432,6 @@ fun ActionDetailDialog(
     val (icon, color, actionLabel) = when (action.actionType) {
         "verified" -> Triple(Icons.Default.Verified, SuccessGreen, "Project Verified")
         "unverified" -> Triple(Icons.Default.RemoveCircle, TextSecondary, "Verification Removed")
-        "report_resolved" -> Triple(Icons.Default.CheckCircle, SuccessGreen, "Report Resolved")
-        "report_dismissed" -> Triple(Icons.Default.Cancel, TextSecondary, "Report Dismissed")
         "flagged" -> Triple(Icons.Default.Warning, WarningOrange, "Project Flagged")
         "unflagged" -> Triple(Icons.Default.CheckCircle, InfoBlue, "Flag Removed")
         "deleted" -> Triple(Icons.Default.Delete, ErrorRed, "Project Deleted")
@@ -585,37 +496,6 @@ fun ActionDetailDialog(
                     )
                 }
 
-                if (action.reportDetails != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = ErrorRed.copy(alpha = 0.05f)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Report,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = ErrorRed
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    "Report Details:",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = ErrorRed
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                action.reportDetails,
-                                fontSize = 12.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    }
-                }
             }
         },
         confirmButton = {
