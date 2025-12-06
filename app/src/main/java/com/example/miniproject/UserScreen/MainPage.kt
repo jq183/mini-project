@@ -1,12 +1,22 @@
 package com.example.miniproject.UserScreen
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -30,6 +41,7 @@ import com.example.miniproject.ui.theme.*
 import com.google.firebase.Timestamp
 import com.example.miniproject.repository.ProjectRepository
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -66,18 +78,44 @@ fun MainPage(navController: NavController) {
     var tempCategory by remember { mutableStateOf(selectedCategory) }
     var tempSort by remember { mutableStateOf(selectedSort) }
 
-    var projects by remember {mutableStateOf<List<Project>>(emptyList())}
+    var projects by remember { mutableStateOf<List<Project>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isBottomBarVisible by remember { mutableStateOf(true) }
+    val listState = rememberLazyListState()
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
 
+    val coroutineScope = rememberCoroutineScope()
     val repository = remember { ProjectRepository() }
     val currentRoute = navController.currentBackStackEntry?.destination?.route
     val categories = listOf("All", "Technology", "Charity", "Education", "Medical", "Art", "Games")
     val sortOptions = listOf("Most funded", "Newest", "Ending soon", "Popular")
 
+    var currentPage by remember { mutableStateOf(1) }
+    val itemsPerPage = 10
+
+
+    LaunchedEffect(listState) {
+        var previousIndex = listState.firstVisibleItemIndex
+        var previousScrollOffset = listState.firstVisibleItemScrollOffset
+
+        snapshotFlow {
+            listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+        }.collect { (currentIndex, currentScrollOffset) ->
+            isBottomBarVisible = when {
+                currentIndex < previousIndex -> true
+                currentIndex > previousIndex -> false
+                currentScrollOffset < previousScrollOffset -> true  // 向上滚
+                currentScrollOffset > previousScrollOffset -> false // 向下滚
+                else -> isBottomBarVisible
+            }
+
+            previousIndex = currentIndex
+            previousScrollOffset = currentScrollOffset
+        }
+    }
     LaunchedEffect(Unit) {
 
         repository.getAllProjects(
@@ -91,19 +129,19 @@ fun MainPage(navController: NavController) {
             }
         )
     }
-    val filteredProjects = remember(selectedCategory, selectedSort, projects,searchQuery) {
+    val filteredProjects = remember(selectedCategory, selectedSort, projects, searchQuery) {
         var filtered = projects
 
-        if (searchQuery.isNotEmpty()){
-            filtered =filtered.filter { project ->
+        if (searchQuery.isNotEmpty()) {
+            filtered = filtered.filter { project ->
                 project.title.contains(searchQuery, ignoreCase = true) ||
-                project.description.contains(searchQuery, ignoreCase = true) ||
-                project.creatorName.contains(searchQuery, ignoreCase = true) ||
-                project.category.contains(searchQuery, ignoreCase = true)
+                        project.description.contains(searchQuery, ignoreCase = true) ||
+                        project.creatorName.contains(searchQuery, ignoreCase = true) ||
+                        project.category.contains(searchQuery, ignoreCase = true)
             }
         }
 
-        if(selectedCategory !="All"){
+        if (selectedCategory != "All") {
             filtered = filtered.filter { it.category == selectedCategory }
         }
 
@@ -115,46 +153,50 @@ fun MainPage(navController: NavController) {
             else -> filtered
         }
     }
+    val totalPages = (filteredProjects.size + itemsPerPage - 1) / itemsPerPage
+    val paginatedProjects = remember(filteredProjects, currentPage) {
+        val startIndex = (currentPage - 1) * itemsPerPage
+        val endIndex = minOf(startIndex + itemsPerPage, filteredProjects.size)
+        if (startIndex < filteredProjects.size) {
+            filteredProjects.subList(startIndex, endIndex)
+        } else {
+            emptyList()
+        }
+    }
+
+    LaunchedEffect(selectedCategory, selectedSort, searchQuery) {
+        currentPage = 1
+        listState.scrollToItem(0)
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "SparkFund",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryBlue,
-                    )
-                },
-                actions = {
-                    IconButton(onClick = { /*  */ }) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = "Notifications",
-                            tint = PrimaryBlue
+            Column(
+                modifier = Modifier.background(BackgroundWhite)
+            ) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "SparkFund",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryBlue,
                         )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = BackgroundWhite
+                    },
+                    actions = {
+                        IconButton(onClick = { /*  */ }) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = "Notifications",
+                                tint = PrimaryBlue
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = BackgroundWhite
+                    )
                 )
-            )
-        },
-        bottomBar = {
-            BottomNavigationBar(
-                navController = navController,
-                currentRoute = currentRoute
-            )
-        }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(BackgroundGray)
-                .padding(paddingValues)
-        ) {
-            item {
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -166,8 +208,10 @@ fun MainPage(navController: NavController) {
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         textStyle = TextStyle(fontSize = 14.sp),
-                        modifier = Modifier.weight(0.85f).height(50.dp),
-                        placeholder = { Text("Search")},
+                        modifier = Modifier
+                            .weight(0.85f)
+                            .height(50.dp),
+                        placeholder = { Text("Search") },
                         leadingIcon = {
                             Icon(
                                 Icons.Default.Search,
@@ -200,20 +244,20 @@ fun MainPage(navController: NavController) {
                         )
                     }
                 }
-            }
 
-            item {
                 ScrollableTabRow(
                     selectedTabIndex = categories.indexOf(selectedCategory),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(BackgroundWhite),
+                    modifier = Modifier.fillMaxWidth(),
                     containerColor = BackgroundWhite,
                     contentColor = PrimaryBlue,
                     edgePadding = 16.dp,
                     indicator = { tabPositions ->
                         TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[categories.indexOf(selectedCategory)]),
+                            Modifier.tabIndicatorOffset(
+                                tabPositions[categories.indexOf(
+                                    selectedCategory
+                                )]
+                            ),
                             color = PrimaryBlue,
                             height = 3.dp
                         )
@@ -238,12 +282,38 @@ fun MainPage(navController: NavController) {
                     }
                 }
             }
-
+        },
+        bottomBar = {
+            AnimatedVisibility(
+                visible = isBottomBarVisible,
+                enter = expandVertically(
+                    animationSpec = tween(200),
+                    expandFrom = Alignment.Bottom
+                ),
+                exit = shrinkVertically(
+                    animationSpec = tween(200),
+                    shrinkTowards = Alignment.Bottom
+                )
+            ) {
+                BottomNavigationBar(
+                    navController = navController,
+                    currentRoute = currentRoute
+                )
+            }
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(BackgroundGray)
+                .padding(paddingValues)
+        ) {
             item {
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            items(filteredProjects) { project ->
+            items(paginatedProjects) { project ->
                 ProjectCard(
                     project = project,
                     searchQuery,
@@ -255,7 +325,22 @@ fun MainPage(navController: NavController) {
             }
 
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                if (totalPages > 1) {
+                    PageControl(
+                        currentPage = currentPage,
+                        totalPages = totalPages,
+                        onPageChange = { newPage ->
+                            currentPage = newPage
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(0)
+                            }
+                        }
+                    )
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(48.dp))
             }
         }
     }
@@ -291,7 +376,6 @@ fun MainPage(navController: NavController) {
                     .padding(horizontal = 20.dp)
                     .padding(bottom = 32.dp)
             ) {
-                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -440,6 +524,7 @@ fun MainPage(navController: NavController) {
         }
     }
 }
+
 @Composable
 fun ProjectCard(
     project: Project,
@@ -803,4 +888,98 @@ fun HighlightSearchText(
         maxLines = maxLines,
         overflow = overflow
     )
+}
+
+@Composable
+fun PageControl(
+    currentPage: Int,
+    totalPages: Int,
+    onPageChange: (Int) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 24.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(
+            onClick = { if (currentPage > 1) onPageChange(currentPage - 1) },
+            enabled = currentPage > 1,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.ChevronLeft,
+                contentDescription = "Previous",
+                tint = if (currentPage > 1) PrimaryBlue else TextSecondary,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        val visiblePages = getVisiblePages(currentPage, totalPages)
+        visiblePages.forEach { page ->
+            if (page == -1) {
+                Text(
+                    text = "...",
+                    color = TextSecondary,
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(if (page == currentPage) 52.dp else 36.dp)
+                        .clip(CircleShape)
+                        .background(Color.Transparent)
+                        .clickable{onPageChange(page)},
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = page.toString(),
+                        color = if (page == currentPage) PrimaryBlue else TextSecondary,  // ✅ 选中的蓝色文字
+                        fontWeight = if (page == currentPage) FontWeight.Bold else FontWeight.Normal,
+                        fontSize = if (page == currentPage) 20.sp else 14.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        IconButton(
+            onClick = { if (currentPage < totalPages) onPageChange(currentPage + 1) },
+            enabled = currentPage < totalPages,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "Next",
+                tint = if (currentPage < totalPages) PrimaryBlue else TextSecondary,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+fun getVisiblePages(currentPage: Int, totalPages: Int): List<Int> {
+    if (totalPages <= 5) {
+        return (1..totalPages).toList()
+    }
+
+    return when {
+        currentPage <= 3 -> {
+            listOf(1, 2, 3, 4, -1, totalPages)
+        }
+
+        currentPage >= totalPages - 2 -> {
+            listOf(1, -1, totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
+        }
+
+        else -> {
+            listOf(1, -1, currentPage - 1, currentPage, currentPage + 1, -1, totalPages)
+        }
+    }
 }

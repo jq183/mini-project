@@ -54,6 +54,7 @@ dependencies {
     implementation(libs.androidx.navigation.runtime.ktx)
     implementation(libs.androidx.compose.ui.text)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.tv.material)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

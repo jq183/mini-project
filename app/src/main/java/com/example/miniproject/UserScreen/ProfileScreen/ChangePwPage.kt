@@ -1,4 +1,4 @@
-package com.example.miniproject.UserScreen
+package com.example.miniproject.UserScreen.ProfileScreen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*

@@ -1,4 +1,4 @@
-package com.example.miniproject.UserScreen
+package com.example.miniproject.UserScreen.ProfileScreen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,6 +34,8 @@ fun ProfilePage(navController: NavController) {
 
     var walletBalance by remember { mutableStateOf(150.50) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+
+    var showLoginDialog by remember { mutableStateOf(false) }
 
     val currentRoute = navController.currentBackStackEntry?.destination?.route
 
@@ -260,7 +262,13 @@ fun ProfilePage(navController: NavController) {
                             icon = Icons.Default.Email,
                             title = "Change Email",
                             subtitle = "Update your email address",
-                            onClick = { navController.navigate("changeEmail") }
+                            onClick = {
+                                if (currentUser!=null) {
+                                    navController.navigate("changeEmail")
+                                } else{
+                                    showLoginDialog = true
+                                }
+                            }
                         )
 
                         Divider(
@@ -272,7 +280,13 @@ fun ProfilePage(navController: NavController) {
                             icon = Icons.Default.Password,
                             title = "Change Password",
                             subtitle = "Update your password",
-                            onClick = { navController.navigate("changePw")}
+                            onClick = {
+                                if (currentUser!=null) {
+                                    navController.navigate("changePw")
+                                } else{
+                                    showLoginDialog = true
+                                }
+                            }
                         )
                     }
                 }
@@ -336,7 +350,6 @@ fun ProfilePage(navController: NavController) {
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
-            // Logout Button
             item {
                 Card(
                     modifier = Modifier
@@ -377,7 +390,6 @@ fun ProfilePage(navController: NavController) {
         }
     }
 
-    // Logout Dialog
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
@@ -428,6 +440,58 @@ fun ProfilePage(navController: NavController) {
             shape = RoundedCornerShape(20.dp)
         )
     }
+
+    if (showLoginDialog) {
+        AlertDialog(
+            onDismissRequest = { showLoginDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = PrimaryBlue,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    "Login Required",
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    "You haven't logged in yet. Would you like to login to access this feature?",
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLoginDialog = false
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PrimaryBlue
+                    )
+                ) {
+                    Text("Login")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showLoginDialog = false }
+                ) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            },
+            containerColor = BackgroundWhite,
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
+
 }
 
 @Composable

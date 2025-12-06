@@ -448,7 +448,12 @@ fun LoginPage(navController: NavController) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextButton(
-                onClick = { navController.navigate("mainPage") },
+                onClick = {
+                    auth.signOut()
+                    navController.navigate("mainPage") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                          },
             
                 colors = ButtonDefaults.textButtonColors(
                     contentColor = PrimaryBlue

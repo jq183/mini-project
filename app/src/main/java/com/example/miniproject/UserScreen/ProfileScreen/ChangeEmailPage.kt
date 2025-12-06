@@ -1,4 +1,4 @@
-package com.example.miniproject.UserScreen
+package com.example.miniproject.UserScreen.ProfileScreen
 
 import android.util.Patterns
 import androidx.compose.foundation.background
@@ -292,7 +292,6 @@ fun ChangeEmailPage(navController: NavController) {
                     }
                 }
             } else {
-                // 等待验证的界面
                 Column(
                     modifier = Modifier
                         .fillMaxSize()

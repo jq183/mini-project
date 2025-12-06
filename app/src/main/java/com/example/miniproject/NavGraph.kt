@@ -6,36 +6,26 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Shapes
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.focusModifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -52,12 +42,12 @@ import com.example.miniproject.AdminScreen.AdminReportDetailPage
 import com.example.miniproject.AdminScreen.AdminReportsPage
 import com.example.miniproject.LoginScreen.ResetPwPage
 import com.example.miniproject.LoginScreen.SignUpPage
-import com.example.miniproject.UserScreen.ChangeEmailPage
-import com.example.miniproject.UserScreen.ChangePwPage
+import com.example.miniproject.UserScreen.ProfileScreen.ChangeEmailPage
+import com.example.miniproject.UserScreen.ProfileScreen.ChangePwPage
 import com.example.miniproject.UserScreen.EditProfilePage
 import com.example.miniproject.UserScreen.MainPage
 import com.example.miniproject.UserScreen.MyProjectsPage
-import com.example.miniproject.UserScreen.ProfilePage
+import com.example.miniproject.UserScreen.ProfileScreen.ProfilePage
 import com.example.miniproject.admin.AdminLogin
 import com.example.miniproject.admin.ChangePasswordScreen
 import com.example.miniproject.ui.theme.BackgroundWhite
@@ -70,9 +60,12 @@ fun AppNavigation() {
     val navController = rememberNavController()
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
+    val isAdmin = currentUser?.email?.endsWith("@js.com") == true ||
+            currentUser?.email?.endsWith("@sp.com") == true
 
-    val startDestination = if (currentUser != null) "mainPage" else "login"
+    val startDestination = if (currentUser != null && !isAdmin) "mainPage" else "login"
 
+    LaunchedEffect(currentUser) { }
     NavHost(navController = navController, startDestination = startDestination) {
         composable("login") {
             LoginPage(
