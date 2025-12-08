@@ -280,7 +280,6 @@ fun AdminHistoryPage(navController: NavController) {
                             action = action,
                             onClick = {
                                 selectedAction = action
-                                showDetailDialog = true
                             },
                             onViewProject = {
                                 navController.navigate("adminProjectDetail/${action.projectId}")
@@ -290,18 +289,6 @@ fun AdminHistoryPage(navController: NavController) {
                 }
             }
         }
-    }
-
-    // Action Detail Dialog
-    if (showDetailDialog && selectedAction != null) {
-        ActionDetailDialog(
-            action = selectedAction!!,
-            onDismiss = { showDetailDialog = false },
-            onViewProject = {
-                navController.navigate("adminProjectDetail/${selectedAction!!.projectId}")
-                showDetailDialog = false
-            }
-        )
     }
 }
 
@@ -326,7 +313,7 @@ fun ActionHistoryCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(onClick = onViewProject),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
@@ -454,124 +441,3 @@ fun ActionHistoryCard(
     }
 }
 
-@Composable
-fun ActionDetailDialog(
-    action: AdminAction,
-    onDismiss: () -> Unit,
-    onViewProject: () -> Unit
-) {
-    val dateFormat = SimpleDateFormat("EEEE, MMM dd, yyyy 'at' HH:mm", Locale.getDefault())
-    val actionDate = action.timestamp?.toDate()?.let { dateFormat.format(it) } ?: "Unknown"
-
-    val (icon, color, actionLabel) = when (action.actionType) {
-        "verified" -> Triple(Icons.Default.Verified, SuccessGreen, "Project Verified")
-        "unverified" -> Triple(Icons.Default.RemoveCircle, TextSecondary, "Verification Removed")
-        "flagged", "suspended" -> Triple(Icons.Default.Warning, WarningOrange, "Project Flagged/Suspended")
-        "unflagged", "resolved" -> Triple(Icons.Default.CheckCircle, InfoBlue, "Flag Removed/Resolved")
-        "deleted" -> Triple(Icons.Default.Delete, ErrorRed, "Project Deleted")
-        else -> Triple(Icons.Default.Info, TextSecondary, "Action Performed")
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .background(color.copy(alpha = 0.1f), RoundedCornerShape(16.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-        },
-        title = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    actionLabel,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    action.projectTitle,
-                    fontSize = 14.sp,
-                    color = TextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        },
-        text = {
-            Column {
-                DetailRow("Action", action.description)
-                DetailRow("Admin", action.adminEmail)
-                DetailRow("Date & Time", actionDate)
-                DetailRow("Project ID", action.projectId)
-
-                if (action.additionalInfo.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        "Additional Information:",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        action.additionalInfo,
-                        fontSize = 13.sp,
-                        color = TextSecondary,
-                        lineHeight = 18.sp
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(onClick = onViewProject) {
-                    Icon(
-                        imageVector = Icons.Default.Visibility,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("View Project")
-                }
-                Button(onClick = onDismiss) {
-                    Text("Close")
-                }
-            }
-        }
-    )
-}
-
-@Composable
-fun DetailRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = "$label:",
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            color = TextSecondary,
-            modifier = Modifier.weight(0.35f)
-        )
-        Text(
-            text = value,
-            fontSize = 13.sp,
-            color = TextPrimary,
-            modifier = Modifier.weight(0.65f)
-        )
-    }
-}

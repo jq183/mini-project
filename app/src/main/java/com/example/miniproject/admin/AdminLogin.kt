@@ -29,8 +29,9 @@ fun AdminLogin(navCollection: NavController) {
     var passwordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var emailError by remember { mutableStateOf(false) }
-    var showGeneralError by remember { mutableStateOf(false) }
-    var generalErrorMessage by remember { mutableStateOf("") }
+    var emailErrorMessage by remember { mutableStateOf("") }
+    var passwordError by remember { mutableStateOf(false) }
+    var passwordErrorMessage by remember { mutableStateOf("") }
 
     val repository = remember { AdminRepository() }
     val coroutineScope = rememberCoroutineScope()
@@ -66,25 +67,6 @@ fun AdminLogin(navCollection: NavController) {
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                if (showGeneralError) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFFFEBEE)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = generalErrorMessage,
-                            color = Color(0xFFD32F2F),
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(12.dp)
-                        )
-                    }
-                }
-
                 Column(
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -99,7 +81,7 @@ fun AdminLogin(navCollection: NavController) {
                         onValueChange = {
                             adminEmail = it
                             emailError = false
-                            showGeneralError = false
+                            emailErrorMessage = ""
                         },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isLoading,
@@ -116,7 +98,7 @@ fun AdminLogin(navCollection: NavController) {
 
                     if (emailError) {
                         Text(
-                            text = "Please use company email (@sp.com)",
+                            text = emailErrorMessage,
                             color = Color(0xFFD32F2F),
                             fontSize = 12.sp,
                             modifier = Modifier.padding(start = 16.dp, top = 4.dp)
@@ -139,7 +121,8 @@ fun AdminLogin(navCollection: NavController) {
                         value = password,
                         onValueChange = {
                             password = it
-                            showGeneralError = false
+                            passwordError = false
+                            passwordErrorMessage = ""
                         },
                         modifier = Modifier.fillMaxWidth(),
                         visualTransformation = if (passwordVisible)
@@ -147,6 +130,7 @@ fun AdminLogin(navCollection: NavController) {
                         else
                             PasswordVisualTransformation(),
                         enabled = !isLoading,
+                        isError = passwordError,
                         trailingIcon = {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
                                 Icon(
@@ -165,31 +149,50 @@ fun AdminLogin(navCollection: NavController) {
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color(0xFF5DADE2),
                             unfocusedBorderColor = Color(0xFFE8EEF7),
+                            errorBorderColor = Color(0xFFD32F2F),
                             focusedContainerColor = Color(0xFFF8F9FA),
                             unfocusedContainerColor = Color(0xFFF8F9FA)
                         ),
                         shape = RoundedCornerShape(8.dp)
                     )
+
+                    if (passwordError) {
+                        Text(
+                            text = passwordErrorMessage,
+                            color = Color(0xFFD32F2F),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
                     onClick = {
-                        if (adminEmail.isBlank()) {
-                            generalErrorMessage = "Email cannot be empty"
-                            showGeneralError = true
-                            return@Button
-                        }
+                        // Reset errors
+                        emailError = false
+                        passwordError = false
+                        emailErrorMessage = ""
+                        passwordErrorMessage = ""
 
-                        if (password.isBlank()) {
-                            generalErrorMessage = "Password cannot be empty"
-                            showGeneralError = true
+                        // Validate email
+                        if (adminEmail.isBlank()) {
+                            emailError = true
+                            emailErrorMessage = "Email cannot be empty"
                             return@Button
                         }
 
                         if (!adminEmail.endsWith("@sp.com")) {
                             emailError = true
+                            emailErrorMessage = "Please use company email (@sp.com)"
+                            return@Button
+                        }
+
+                        // Validate password
+                        if (password.isBlank()) {
+                            passwordError = true
+                            passwordErrorMessage = "Password cannot be empty"
                             return@Button
                         }
 
@@ -211,9 +214,9 @@ fun AdminLogin(navCollection: NavController) {
                                     }
                                 }
                             } else {
-                                generalErrorMessage = result.exceptionOrNull()?.message
-                                    ?: "Login failed"
-                                showGeneralError = true
+                                passwordError = true
+                                passwordErrorMessage = result.exceptionOrNull()?.message
+                                    ?: "Invalid email or password"
                             }
                         }
                     },
@@ -274,8 +277,12 @@ fun ChangePasswordScreen(navController: NavController) {
     var newPasswordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var newPasswordError by remember { mutableStateOf(false) }
+    var newPasswordErrorMessage by remember { mutableStateOf("") }
     var showError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var confirmPasswordError by remember { mutableStateOf(false) }
+    var confirmPasswordErrorMessage by remember { mutableStateOf("") }
 
     val repository = remember { AdminRepository() }
     val coroutineScope = rememberCoroutineScope()
@@ -362,12 +369,14 @@ fun ChangePasswordScreen(navController: NavController) {
                             newPassword = it
                             showError = false
                         },
+                        placeholder = { Text("Minimum 6 characters") },
                         modifier = Modifier.fillMaxWidth(),
                         visualTransformation = if (newPasswordVisible)
                             VisualTransformation.None
                         else
                             PasswordVisualTransformation(),
                         enabled = !isLoading,
+                        isError = newPasswordError,
                         trailingIcon = {
                             IconButton(onClick = { newPasswordVisible = !newPasswordVisible }) {
                                 Icon(
@@ -391,12 +400,14 @@ fun ChangePasswordScreen(navController: NavController) {
                         ),
                         shape = RoundedCornerShape(8.dp)
                     )
-                    Text(
-                        text = "Minimum 6 characters",
-                        color = Color(0xFF95A5A6),
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                    )
+                    if (newPasswordError) {
+                        Text(
+                            text = newPasswordErrorMessage,
+                            color = Color(0xFFD32F2F),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -414,7 +425,8 @@ fun ChangePasswordScreen(navController: NavController) {
                         value = confirmPassword,
                         onValueChange = {
                             confirmPassword = it
-                            showError = false
+                            confirmPasswordError = false
+                            confirmPasswordErrorMessage = ""
                         },
                         modifier = Modifier.fillMaxWidth(),
                         visualTransformation = if (confirmPasswordVisible)
@@ -422,6 +434,7 @@ fun ChangePasswordScreen(navController: NavController) {
                         else
                             PasswordVisualTransformation(),
                         enabled = !isLoading,
+                        isError = confirmPasswordError,
                         trailingIcon = {
                             IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
                                 Icon(
@@ -440,37 +453,57 @@ fun ChangePasswordScreen(navController: NavController) {
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color(0xFF5DADE2),
                             unfocusedBorderColor = Color(0xFFE8EEF7),
+                            errorBorderColor = Color(0xFFD32F2F),
                             focusedContainerColor = Color(0xFFF8F9FA),
                             unfocusedContainerColor = Color(0xFFF8F9FA)
                         ),
                         shape = RoundedCornerShape(8.dp)
                     )
+
+                    if (confirmPasswordError) {
+                        Text(
+                            text = confirmPasswordErrorMessage,
+                            color = Color(0xFFD32F2F),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
                     onClick = {
+                        // Reset errors
+                        newPasswordError = false
+                        confirmPasswordError = false
+                        newPasswordErrorMessage = ""
+                        confirmPasswordErrorMessage = ""
+
                         when {
                             newPassword.isBlank() -> {
-                                errorMessage = "New password cannot be empty"
-                                showError = true
+                                newPasswordError = true
+                                newPasswordErrorMessage = "New password cannot be empty"
                             }
                             newPassword.length < 6 -> {
-                                errorMessage = "Password must be at least 6 characters"
-                                showError = true
-                            }
-                            confirmPassword.isBlank() -> {
-                                errorMessage = "Please confirm your password"
-                                showError = true
-                            }
-                            newPassword != confirmPassword -> {
-                                errorMessage = "Passwords do not match"
-                                showError = true
+                                newPasswordError = true
+                                newPasswordErrorMessage = "Password must be at least 6 characters"
+                                confirmPasswordError = true
+                                confirmPasswordErrorMessage = "Password must be at least 6 characters"
                             }
                             newPassword == AdminRepository.DEFAULT_PASSWORD -> {
-                                errorMessage = "Please choose a different password"
-                                showError = true
+                                newPasswordError = true
+                                newPasswordErrorMessage = "Please choose a different password"
+                                confirmPasswordError = true
+                                confirmPasswordErrorMessage = "Please choose a different password"
+                            }
+                            confirmPassword.isBlank() -> {
+                                confirmPasswordError = true
+                                confirmPasswordErrorMessage = "Please confirm your password"
+                            }
+                            newPassword != confirmPassword -> {
+                                confirmPasswordError = true
+                                confirmPasswordErrorMessage = "Passwords do not match"
                             }
                             else -> {
                                 isLoading = true
@@ -483,9 +516,9 @@ fun ChangePasswordScreen(navController: NavController) {
                                             popUpTo("changePassword") { inclusive = true }
                                         }
                                     } else {
-                                        errorMessage = result.exceptionOrNull()?.message
+                                        confirmPasswordError = true
+                                        confirmPasswordErrorMessage = result.exceptionOrNull()?.message
                                             ?: "Failed to change password"
-                                        showError = true
                                     }
                                 }
                             }
@@ -512,7 +545,30 @@ fun ChangePasswordScreen(navController: NavController) {
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
+
                     }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedButton(
+                    onClick = { navController.navigate("admin login")},
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    enabled = !isLoading,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.White
+                    ),
+                    border = BorderStroke(1.dp, PrimaryBlue),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = "Back",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = PrimaryBlue
+                    )
                 }
             }
         }

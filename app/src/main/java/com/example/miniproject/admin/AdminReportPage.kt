@@ -47,9 +47,13 @@ fun AdminReportsPage(navController: NavController) {
     var showDetailDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    var tempCategory by remember { mutableStateOf(selectedCategory) }
+    var tempSort by remember { mutableStateOf(selectedSort) }
+
     val adminRepository = remember { AdminRepository() }
     val reportRepository = remember { ReportRepository() }
     val scope = rememberCoroutineScope()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val currentRoute = navController.currentBackStackEntry?.destination?.route
     val statusFilters = listOf("All", "Pending", "Resolved", "Dismissed")
@@ -67,12 +71,7 @@ fun AdminReportsPage(navController: NavController) {
                 result.fold(
                     onSuccess = { fetchedReports ->
                         reports = fetchedReports
-
-                        fetchedReports.groupBy { it.projectId }.forEach { (projectId, reports) ->
-                        }
-
                         groupedReports = reportRepository.groupReportsByProject(fetchedReports)
-
                         isLoading = false
                     },
                     onFailure = { exception ->
@@ -90,7 +89,6 @@ fun AdminReportsPage(navController: NavController) {
     val filteredAndSortedReports = remember(selectedStatusFilter, selectedCategory, selectedSort, groupedReports) {
         var filtered = groupedReports
 
-
         if (selectedStatusFilter != "All") {
             filtered = filtered.filter { grouped ->
                 when (selectedStatusFilter.lowercase()) {
@@ -102,10 +100,8 @@ fun AdminReportsPage(navController: NavController) {
             }
         }
 
-
         if (selectedCategory != "All") {
             filtered = filtered.filter { grouped ->
-
                 true
             }
         }
@@ -122,24 +118,27 @@ fun AdminReportsPage(navController: NavController) {
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "Reports Management",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryBlue,
-                        )
-                    }
+                    Text(
+                        text = "Reports Management",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryBlue,
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = BackgroundWhite
                 ),
                 actions = {
-                    IconButton(onClick = { showFilterSheet = true }) {
+                    IconButton(onClick = {
+                        tempCategory = selectedCategory
+                        tempSort = selectedSort
+                        showFilterSheet = true
+                    }) {
                         Icon(
                             imageVector = Icons.Default.FilterList,
                             contentDescription = "Filter",
-                            tint = PrimaryBlue
+                            tint = PrimaryBlue,
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                     IconButton(onClick = {
@@ -163,7 +162,8 @@ fun AdminReportsPage(navController: NavController) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Refresh",
-                            tint = PrimaryBlue
+                            tint = PrimaryBlue,
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                 }
@@ -221,50 +221,6 @@ fun AdminReportsPage(navController: NavController) {
                                 fontSize = 15.sp,
                                 fontWeight = if (selectedStatusFilter == filter) FontWeight.Bold else FontWeight.Normal,
                                 color = if (selectedStatusFilter == filter) PrimaryBlue else TextSecondary
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Active filters display
-            if (selectedCategory != "All" || selectedSort != "Newest") {
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(BackgroundWhite)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (selectedCategory != "All") {
-                        item {
-                            FilterChip(
-                                selected = true,
-                                onClick = { selectedCategory = "All" },
-                                label = { Text(selectedCategory, fontSize = 13.sp) },
-                                trailingIcon = {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "Remove filter",
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            )
-                        }
-                    }
-                    if (selectedSort != "Newest") {
-                        item {
-                            FilterChip(
-                                selected = true,
-                                onClick = { selectedSort = "Newest" },
-                                label = { Text(selectedSort, fontSize = 13.sp) },
-                                trailingIcon = {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "Remove filter",
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
                             )
                         }
                     }
@@ -350,100 +306,180 @@ fun AdminReportsPage(navController: NavController) {
         }
     }
 
-    // Filter Bottom Sheet
+    // Filter Bottom Sheet (Same as AdminMainPage)
     if (showFilterSheet) {
         ModalBottomSheet(
-            onDismissRequest = { showFilterSheet = false },
-            containerColor = BackgroundWhite
+            onDismissRequest = {
+                showFilterSheet = false
+                tempCategory = selectedCategory
+                tempSort = selectedSort
+            },
+            sheetState = sheetState,
+            containerColor = BackgroundWhite,
+            dragHandle = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .width(40.dp)
+                            .height(4.dp)
+                            .background(BorderGray, RoundedCornerShape(2.dp))
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 32.dp)
             ) {
-                Text(
-                    "Filter & Sort",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Filter & Sort",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+
+                    TextButton(
+                        onClick = {
+                            tempCategory = "All"
+                            tempSort = "Newest"
+                        }
+                    ) {
+                        Text(
+                            "Reset",
+                            color = PrimaryBlue,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Category Filter
                 Text(
                     "Category",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
                 )
+
                 Spacer(modifier = Modifier.height(8.dp))
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(categories) { category ->
-                        FilterChip(
-                            selected = selectedCategory == category,
-                            onClick = { selectedCategory = category },
-                            label = { Text(category) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = PrimaryBlue,
-                                selectedLabelColor = BackgroundWhite
-                            )
-                        )
+
+                categories.chunked(2).forEach { rowCategories ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowCategories.forEach { category ->
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { tempCategory = category }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = tempCategory == category,
+                                    onClick = { tempCategory = category },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = PrimaryBlue,
+                                        unselectedColor = TextSecondary
+                                    )
+                                )
+                                Text(
+                                    category,
+                                    fontSize = 14.sp,
+                                    color = TextPrimary
+                                )
+                            }
+                        }
+                        if (rowCategories.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Sort Options
                 Text(
-                    "Sort By",
+                    "Sort by",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
                 )
+
                 Spacer(modifier = Modifier.height(8.dp))
-                sortOptions.forEach { sort ->
+
+                sortOptions.chunked(2).forEach { rowOptions ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { selectedSort = sort }
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        RadioButton(
-                            selected = selectedSort == sort,
-                            onClick = { selectedSort = sort },
-                            colors = RadioButtonDefaults.colors(
-                                selectedColor = PrimaryBlue
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = sort,
-                            fontSize = 15.sp,
-                            color = TextPrimary
-                        )
+                        rowOptions.forEach { option ->
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { tempSort = option }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = tempSort == option,
+                                    onClick = { tempSort = option },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = PrimaryBlue,
+                                        unselectedColor = TextSecondary
+                                    )
+                                )
+                                Text(
+                                    option,
+                                    fontSize = 14.sp,
+                                    color = TextPrimary
+                                )
+                            }
+                        }
+                        if (rowOptions.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // Apply Button
                 Button(
-                    onClick = { showFilterSheet = false },
+                    onClick = {
+                        selectedCategory = tempCategory
+                        selectedSort = tempSort
+                        showFilterSheet = false
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .height(50.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = PrimaryBlue
                     ),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Apply Filters")
+                    Text(
+                        "Apply Filters",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -587,32 +623,8 @@ fun AdminReportsPage(navController: NavController) {
                 }
             },
             confirmButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (selectedReport!!.status == "pending") {
-                        Button(
-                            onClick = {
-                                showDetailDialog = false
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ErrorRed
-                            )
-                        ) {
-                            Text("Flag as Scam")
-                        }
-                        Button(
-                            onClick = {
-                                showDetailDialog = false
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = PrimaryBlue
-                            )
-                        ) {
-                            Text("Dismiss")
-                        }
-                    }
-                    TextButton(onClick = { showDetailDialog = false }) {
-                        Text("Close")
-                    }
+                TextButton(onClick = { showDetailDialog = false }) {
+                    Text("Close")
                 }
             }
         )
@@ -808,8 +820,6 @@ fun GroupedReportCard(
         }
     }
 }
-
-
 
 @Composable
 fun IndividualReportItem(
