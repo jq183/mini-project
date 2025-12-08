@@ -33,15 +33,14 @@ class AdminRepository {
                 return Result.failure(Exception("Please use company email ($COMPANY_DOMAIN)"))
             }
 
-            // 先尝试用输入的密码登录
             try {
                 auth.signInWithEmailAndPassword(email, password).await()
             } catch (loginException: Exception) {
-                // 如果登录失败，且密码是默认密码，尝试自动注册
+
                 if (password == DEFAULT_PASSWORD) {
                     try {
                         auth.createUserWithEmailAndPassword(email, password).await()
-                        // 注册成功，继续下面的流程
+
                     } catch (createException: Exception) {
                         return Result.failure(Exception("Invalid email or password"))
                     }
@@ -52,14 +51,14 @@ class AdminRepository {
 
             val currentUser = auth.currentUser
             if (currentUser != null) {
-                // 从 Firestore 获取 admin 信息
+
                 val querySnapshot = db.collection("Admins")
                     .whereEqualTo("Email", email)
                     .get()
                     .await()
 
                 if (querySnapshot.isEmpty) {
-                    // 如果没有记录，创建新的 admin 文档
+
                     val newAdminId = generateAdminId()
 
 
@@ -86,7 +85,7 @@ class AdminRepository {
                 val adminId = adminDoc.id
                 val isFirstLogin = adminDoc.getBoolean("IsFirstLogin") ?: false
 
-                // 检查是否是第一次登录（密码是 admin123）
+
                 val needPasswordChange = password == DEFAULT_PASSWORD && isFirstLogin
 
                 val admin = Admin(
@@ -109,10 +108,10 @@ class AdminRepository {
         return try {
             val currentUser = auth.currentUser
             if (currentUser != null) {
-                // 更新 Firebase Auth 密码
+
                 currentUser.updatePassword(newPassword).await()
 
-                // 更新 Firestore 中的 IsFirstLogin 状态
+
                 val querySnapshot = db.collection("Admins")
                     .whereEqualTo("Email", currentUser.email)
                     .get()
@@ -193,7 +192,7 @@ class AdminActionRepository {
     private val certificationsRef = db.collection("Certifications")
     private val reportsRef = db.collection("Reports")
 
-    // 生成 AdminAction ID
+
     private suspend fun generateActionId(): String {
         val snapshot = actionsRef.get().await()
         val existingIds = snapshot.documents.map { it.id }
@@ -209,7 +208,6 @@ class AdminActionRepository {
         return newId
     }
 
-    // 记录管理员操作
     suspend fun recordAction(
         actionType: String,
         projectId: String,
@@ -218,18 +216,15 @@ class AdminActionRepository {
         additionalInfo: String = ""
     ): Result<String> {
         return try {
-            // 获取项目标题
             val projectDoc = projectsRef.document(projectId).get().await()
             val projectTitle = projectDoc.getString("Title") ?: "Unknown Project"
 
-            // 获取管理员邮箱
             val adminDoc = adminsRef.document(adminId).get().await()
             val adminEmail = adminDoc.getString("Email") ?: "Unknown Admin"
 
-            // 生成 Action ID
             val actionId = generateActionId()
 
-            // 创建操作记录
+
             val actionData = hashMapOf(
                 "Action_Type" to actionType,
                 "Project_ID" to projectId,
@@ -249,7 +244,6 @@ class AdminActionRepository {
         }
     }
 
-    // 获取所有操作历史
     suspend fun getAllActions(): Result<List<AdminAction>> {
         return try {
             val snapshot = actionsRef
@@ -280,7 +274,6 @@ class AdminActionRepository {
         }
     }
 
-    // 根据操作类型过滤
     fun filterActionsByType(actions: List<AdminAction>, filter: String): List<AdminAction> {
         return when (filter) {
             "All" -> actions
@@ -296,7 +289,6 @@ class AdminActionRepository {
         }
     }
 
-    // 获取特定管理员的操作历史
     suspend fun getActionsByAdmin(adminId: String): Result<List<AdminAction>> {
         return try {
             val snapshot = actionsRef
@@ -328,7 +320,6 @@ class AdminActionRepository {
         }
     }
 
-    // 获取特定项目的操作历史
     suspend fun getActionsByProject(projectId: String): Result<List<AdminAction>> {
         return try {
             val snapshot = actionsRef

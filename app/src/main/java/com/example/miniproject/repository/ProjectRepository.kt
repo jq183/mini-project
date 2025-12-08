@@ -137,7 +137,7 @@ class ProjectRepository {
                 .set(certificationData)
                 .await()
 
-            // 记录操作历史
+
             actionRepository.recordAction(
                 actionType = "verified",
                 projectId = projectId,
@@ -173,7 +173,7 @@ class ProjectRepository {
                 doc.reference.delete().await()
             }
 
-            // 记录操作历史
+
             actionRepository.recordAction(
                 actionType = "unverified",
                 projectId = projectId,
@@ -201,7 +201,7 @@ class ProjectRepository {
                 .update("isWarning", false)
                 .await()
 
-            // 记录操作历史
+
             actionRepository.recordAction(
                 actionType = "resolved",
                 projectId = projectId,
@@ -234,7 +234,7 @@ class ProjectRepository {
                 )
                 .await()
 
-            // 记录操作历史
+
             actionRepository.recordAction(
                 actionType = "suspended",
                 projectId = projectId,
@@ -262,7 +262,7 @@ class ProjectRepository {
                 .update("Status", "cancelled")
                 .await()
 
-            // 记录操作历史
+
             actionRepository.recordAction(
                 actionType = "deleted",
                 projectId = projectId,
