@@ -54,7 +54,6 @@ fun AdminDashboardPage(navController: NavController) {
     val db = remember { FirebaseFirestore.getInstance() }
     val coroutineScope = rememberCoroutineScope()
 
-    // Fetch data from Firebase
     LaunchedEffect(Unit) {
         coroutineScope.launch {
             try {

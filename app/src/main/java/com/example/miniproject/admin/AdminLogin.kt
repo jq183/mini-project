@@ -202,12 +202,10 @@ fun AdminLogin(navCollection: NavController) {
                             if (result.isSuccess) {
                                 val admin = result.getOrNull()
                                 if (admin?.isFirstLogin == true) {
-                                    // 第一次登录，导航到修改密码页面
                                     navCollection.navigate("changePassword") {
                                         popUpTo("adminLogin") { inclusive = true }
                                     }
                                 } else {
-                                    // 正常登录
                                     navCollection.navigate("adminMainPage") {
                                         popUpTo("adminLogin") { inclusive = true }
                                     }

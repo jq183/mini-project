@@ -53,7 +53,6 @@ fun AdminReportDetailPage(
     val adminRepository = remember { AdminRepository() }
     var currentAdmin by remember { mutableStateOf<Admin?>(null) }
 
-    // Mock data - Replace with Firebase call
     LaunchedEffect(projectId) {
         scope.launch {
             isLoading = true
@@ -476,7 +475,6 @@ fun AdminReportDetailPage(
                 scope.launch {
                     isProcessing = true
 
-                    // 确保有管理员信息
                     val adminId = currentAdmin?.adminId
                     if (adminId == null) {
                         errorMessage = "Admin information not found"
@@ -486,7 +484,6 @@ fun AdminReportDetailPage(
 
                     when (selectedAction) {
                         "resolve" -> {
-                            // 步骤1: 更新所有报告状态
                             val reportResult = reportRepository.updateAllReportsForProject(
                                 projectId = projectId,
                                 status = "resolved",
@@ -495,7 +492,6 @@ fun AdminReportDetailPage(
 
                             reportResult.fold(
                                 onSuccess = {
-                                    // 步骤2: Suspend 项目并记录操作
                                     projectRepository.suspendProject(
                                         projectId = projectId,
                                         adminId = adminId,
@@ -518,7 +514,6 @@ fun AdminReportDetailPage(
                             )
                         }
                         "dismiss" -> {
-                            // 更新报告状态
                             val reportResult = reportRepository.updateAllReportsForProject(
                                 projectId = projectId,
                                 status = "dismissed",
@@ -527,7 +522,6 @@ fun AdminReportDetailPage(
 
                             reportResult.fold(
                                 onSuccess = {
-                                    // 记录操作并移除警告标记
                                     projectRepository.dismissReport(
                                         projectId = projectId,
                                         adminId = adminId,
@@ -570,7 +564,6 @@ fun DetailedReportCard(report: Report) {
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

@@ -40,15 +40,15 @@ data class GroupedReport(
             }
         }
 
-    // 获取待处理报告数量
+
     val pendingCount: Int
         get() = reports.count { it.status == "pending" }
 
-    // 获取已解决报告数量
+
     val resolvedCount: Int
         get() = reports.count { it.status == "resolved" }
 
-    // 获取已忽略报告数量
+
     val dismissedCount: Int
         get() = reports.count { it.status == "dismissed" }
 }
@@ -56,7 +56,7 @@ data class GroupedReport(
 class ReportRepository {
     private val db = FirebaseFirestore.getInstance()
 
-    // 获取所有报告并自动按项目分组
+
     suspend fun getAllReportsGrouped(): Result<List<GroupedReport>> {
         return try {
             val snapshot = db.collection("Reports").get().await()
@@ -97,7 +97,6 @@ class ReportRepository {
         }
     }
 
-    // 获取所有报告（未分组）
     suspend fun getAllReports(): Result<List<Report>> {
         return try {
             val snapshot = db.collection("Reports").get().await()
@@ -137,13 +136,13 @@ class ReportRepository {
         }
     }
 
-    // 根据状态过滤报告
+
     fun filterReportsByStatus(reports: List<Report>, status: String): List<Report> {
         if (status == "All") return reports
         return reports.filter { it.status.equals(status, ignoreCase = true) }
     }
 
-    // 将报告按项目分组
+
     fun groupReportsByProject(reports: List<Report>): List<GroupedReport> {
         return reports
             .groupBy { it.projectId }
@@ -164,7 +163,7 @@ class ReportRepository {
             .sortedByDescending { it.totalReports }
     }
 
-    // 更新单个报告状态
+
     suspend fun updateReportStatus(
         reportId: String,
         status: String,
@@ -184,7 +183,6 @@ class ReportRepository {
         }
     }
 
-    // 批量更新项目的所有报告（处理整个项目）
     suspend fun updateAllReportsForProject(
         projectId: String,
         status: String,
@@ -212,7 +210,6 @@ class ReportRepository {
         }
     }
 
-    // 智能批量更新：只更新待处理的报告，保持已处理报告的状态
     suspend fun updatePendingReportsForProject(
         projectId: String,
         status: String,
@@ -241,20 +238,19 @@ class ReportRepository {
         }
     }
 
-    // 获取特定项目的所有报告
     suspend fun getReportsForProject(projectId: String): Result<List<Report>> {
         return try {
-            // 1️⃣ 先获取项目标题
+
             val projectDoc = db.collection("projects").document(projectId).get().await()
             val projectTitle = projectDoc.getString("Title") ?: "Unknown Project"
 
-            // 2️⃣ 查询 Reports
+
             val snapshot = db.collection("Reports")
                 .whereEqualTo("Project_ID", projectId)
                 .get()
                 .await()
 
-            // 3️⃣ 如果没找到,尝试获取 Project_ID 是空字符串的 report(兼容旧数据)
+
             val reports = if (snapshot.isEmpty) {
                 db.collection("Reports")
                     .whereEqualTo("Project_ID", "")
@@ -302,7 +298,7 @@ class ReportRepository {
                 }
             }
 
-            // 4️⃣ 按 reportedAt 排序
+
             val sortedReports = reports.sortedByDescending { it.reportedAt?.seconds ?: 0 }
 
             Result.success(sortedReports)
@@ -311,7 +307,7 @@ class ReportRepository {
         }
     }
 
-    // 检查项目是否有新的待处理报告
+
     suspend fun hasNewPendingReports(projectId: String): Result<Boolean> {
         return try {
             val snapshot = db.collection("Reports")

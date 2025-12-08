@@ -56,7 +56,6 @@ fun AdminReportsPage(navController: NavController) {
     val categories = listOf("All", "Technology", "Charity", "Education", "Medical", "Art", "Games")
     val sortOptions = listOf("Newest", "Oldest", "Most Reports")
 
-    // 从 Firebase 加载所有数据
     LaunchedEffect(Unit) {
         scope.launch {
             isLoading = true
@@ -69,7 +68,6 @@ fun AdminReportsPage(navController: NavController) {
                     onSuccess = { fetchedReports ->
                         reports = fetchedReports
 
-                        // Debug: Print project IDs
                         fetchedReports.groupBy { it.projectId }.forEach { (projectId, reports) ->
                         }
 
@@ -89,11 +87,10 @@ fun AdminReportsPage(navController: NavController) {
         }
     }
 
-    // 过滤和排序逻辑
     val filteredAndSortedReports = remember(selectedStatusFilter, selectedCategory, selectedSort, groupedReports) {
         var filtered = groupedReports
 
-        // 按状态过滤
+
         if (selectedStatusFilter != "All") {
             filtered = filtered.filter { grouped ->
                 when (selectedStatusFilter.lowercase()) {
@@ -108,13 +105,11 @@ fun AdminReportsPage(navController: NavController) {
 
         if (selectedCategory != "All") {
             filtered = filtered.filter { grouped ->
-                // 这里需要从项目获取类别信息
-                // 暂时通过 projectId 匹配
-                true // 需要额外的项目数据才能过滤
+
+                true
             }
         }
 
-        // 排序
         when (selectedSort) {
             "Newest" -> filtered.sortedByDescending { it.latestReport.reportedAt?.seconds ?: 0 }
             "Oldest" -> filtered.sortedBy { it.latestReport.reportedAt?.seconds ?: 0 }
@@ -140,7 +135,6 @@ fun AdminReportsPage(navController: NavController) {
                     containerColor = BackgroundWhite
                 ),
                 actions = {
-                    // Filter按钮
                     IconButton(onClick = { showFilterSheet = true }) {
                         Icon(
                             imageVector = Icons.Default.FilterList,
@@ -148,7 +142,6 @@ fun AdminReportsPage(navController: NavController) {
                             tint = PrimaryBlue
                         )
                     }
-                    // 刷新按钮
                     IconButton(onClick = {
                         scope.launch {
                             isLoading = true
@@ -278,7 +271,6 @@ fun AdminReportsPage(navController: NavController) {
                 }
             }
 
-            // 显示错误信息
             if (errorMessage != null) {
                 Surface(
                     modifier = Modifier
@@ -306,7 +298,6 @@ fun AdminReportsPage(navController: NavController) {
                 }
             }
 
-            // Grouped Reports List
             if (isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),

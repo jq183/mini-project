@@ -622,7 +622,7 @@ fun AdminProjectDetail(
                                         projectId = project!!.id,
                                         adminId = currentAdminId!!,
                                         onSuccess = {
-                                            // Reload project data
+
                                             repository.getProjectById(
                                                 projectId = projectId,
                                                 onSuccess = { proj ->
