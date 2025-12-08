@@ -57,7 +57,6 @@ fun AdminHistoryPage(navController: NavController) {
         "Deletions"
     )
 
-    // 从 Firebase 获取数据
     LaunchedEffect(Unit) {
         scope.launch {
             isLoading = true
