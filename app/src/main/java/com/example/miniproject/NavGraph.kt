@@ -44,7 +44,6 @@ import com.example.miniproject.LoginScreen.ResetPwPage
 import com.example.miniproject.LoginScreen.SignUpPage
 import com.example.miniproject.UserScreen.ProfileScreen.ChangeEmailPage
 import com.example.miniproject.UserScreen.ProfileScreen.ChangePwPage
-import com.example.miniproject.UserScreen.EditProfilePage
 import com.example.miniproject.UserScreen.MainPage
 import com.example.miniproject.UserScreen.MyProjectsPage
 import com.example.miniproject.UserScreen.ProfileScreen.ProfilePage
@@ -93,10 +92,6 @@ fun AppNavigation() {
 
         composable  ("myProject"){
             MyProjectsPage(navController)
-        }
-
-        composable ("editProfile"){
-            EditProfilePage(navController)
         }
 
         composable ("changePw"){
