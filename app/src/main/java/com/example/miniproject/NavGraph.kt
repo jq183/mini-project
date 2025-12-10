@@ -94,6 +94,19 @@ fun AppNavigation() {
             MyProjectsPage(navController)
         }
 
+        composable("projectDetail/{projectId}") { backStackEntry ->
+            ProjectDetailPage(
+                navController = navController,
+                projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            )
+        }
+        composable ("createProject"){
+            CreateProjectPage(navController)
+        }
+        composable ("editProfile"){
+            EditProfilePage(navController)
+        }
+
         composable ("changePw"){
             ChangePwPage(navController)
         }
