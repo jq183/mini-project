@@ -42,11 +42,13 @@ import com.example.miniproject.AdminScreen.AdminReportDetailPage
 import com.example.miniproject.AdminScreen.AdminReportsPage
 import com.example.miniproject.LoginScreen.ResetPwPage
 import com.example.miniproject.LoginScreen.SignUpPage
+import com.example.miniproject.UserScreen.CreateProjectPage
 import com.example.miniproject.UserScreen.ProfileScreen.ChangeEmailPage
 import com.example.miniproject.UserScreen.ProfileScreen.ChangePwPage
 import com.example.miniproject.UserScreen.MainPage
 import com.example.miniproject.UserScreen.MyProjectsPage
 import com.example.miniproject.UserScreen.ProfileScreen.ProfilePage
+import com.example.miniproject.UserScreen.ProjectDetailPage
 import com.example.miniproject.admin.AdminLogin
 import com.example.miniproject.admin.ChangePasswordScreen
 import com.example.miniproject.ui.theme.BackgroundWhite
@@ -154,6 +156,8 @@ fun AppNavigation() {
                 projectId = backStackEntry.arguments?.getString("projectId") ?: ""
             )
         }
+
+
 
 
     }
