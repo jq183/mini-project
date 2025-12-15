@@ -21,9 +21,18 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.miniproject.repository.ProjectRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.DropdownMenuItem
 
+// 新增导入用于日期选择器和时间戳
+import android.app.DatePickerDialog
+import java.util.Calendar
+import java.util.Date
+import java.text.SimpleDateFormat
+import java.util.Locale
+import com.google.firebase.Timestamp
 
 @Composable
 fun CreateProjectPage(
@@ -48,10 +57,35 @@ fun CreateProjectPage(
     var category by remember { mutableStateOf("") }
     var goalAmount by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
-    var dueDate by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+
+    // --- DUE DATE STATES AND PICKER ---
+    val todayCalendar = remember { Calendar.getInstance() }
+    val initialDate = remember { todayCalendar.timeInMillis + (1000 * 60 * 60 * 24 * 30L) }
+    var selectedDateMillis by remember { mutableStateOf(initialDate) }
+
+    val dateFormatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+    var selectedDateText by remember { mutableStateOf(dateFormatter.format(Date(initialDate))) }
+
+    val datePickerDialog = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            val calendar = Calendar.getInstance().apply {
+                set(year, month, dayOfMonth, 0, 0, 0) // 设置日期，时间清零
+                set(Calendar.MILLISECOND, 0)
+            }
+            selectedDateMillis = calendar.timeInMillis
+            selectedDateText = dateFormatter.format(Date(selectedDateMillis))
+        },
+        todayCalendar.get(Calendar.YEAR),
+        todayCalendar.get(Calendar.MONTH),
+        todayCalendar.get(Calendar.DAY_OF_MONTH)
+    ).apply {
+        datePicker.minDate = todayCalendar.timeInMillis
+    }
+    // --- END DUE DATE ---
 
 
     val categories = listOf("Technology", "Charity", "Education", "Medical", "Art", "Games")
@@ -125,19 +159,15 @@ fun CreateProjectPage(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // 可选：添加背景或边框来突出显示选择区域
                     .wrapContentSize(Alignment.TopStart)
             ) {
-                // 1. 菜单锚点 (使用 Button 或 Text)
                 OutlinedButton(
                     onClick = { expanded = true },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // 显示当前选定的分类，如果为空则显示默认文本
                     Text(category.ifEmpty { "Select Category" })
                 }
 
-                // 2. 下拉菜单
                 DropdownMenu(
                     expanded = expanded,
                     onDismissRequest = { expanded = false }
@@ -146,8 +176,8 @@ fun CreateProjectPage(
                         DropdownMenuItem(
                             text = { Text(item) },
                             onClick = {
-                                category = item // 更新选择值
-                                expanded = false // 关闭菜单
+                                category = item
+                                expanded = false
                             }
                         )
                     }
@@ -164,15 +194,30 @@ fun CreateProjectPage(
                 modifier = Modifier.fillMaxWidth()
             )
 
-
             Spacer(Modifier.height(8.dp))
 
-            OutlinedTextField(
-                value = dueDate,
-                onValueChange = { dueDate = it },
-                label = { Text("Target Due Date (e.g., 2026-06-30)") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            // --- DUE DATE PICKER UI ---
+            OutlinedButton(
+                onClick = { datePickerDialog.show() },
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Due Date: $selectedDateText",
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "Select Date"
+                    )
+                }
+            }
+            // --- END DUE DATE PICKER UI ---
 
             Spacer(Modifier.height(16.dp))
 
@@ -180,10 +225,18 @@ fun CreateProjectPage(
             Button(
                 onClick = {
                     if (title.isEmpty() || description.isEmpty() || category.isEmpty() ||
-                        goalAmount.toDoubleOrNull() == null || imageUri == null || dueDate.isEmpty()
+                        goalAmount.toDoubleOrNull() == null || imageUri == null
                     ) {
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("Please fill all fields and select an image.", withDismissAction = true)
+                        }
+                        return@Button
+                    }
+
+                    // 确保截止日期在今天之后
+                    if (selectedDateMillis <= Calendar.getInstance().timeInMillis) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Due Date must be in the future.", withDismissAction = true)
                         }
                         return@Button
                     }
@@ -197,7 +250,7 @@ fun CreateProjectPage(
                         goalAmount = goalAmount.toDouble(),
                         creatorId = currentUserId,
                         creatorName = currentUserName,
-                        dueDate = dueDate
+                        dueDate = Timestamp(Date(selectedDateMillis))
                     )
 
                     repository.uploadImageAndCreateProject(

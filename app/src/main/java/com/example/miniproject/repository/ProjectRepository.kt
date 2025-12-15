@@ -7,10 +7,10 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
-
-
 
 class ProjectRepository {
     private val db = FirebaseFirestore.getInstance()
@@ -47,19 +47,20 @@ class ProjectRepository {
     ) {
         val projectId = generateProjectId()
 
+        // 写入字段: Target_Amount, User_ID, imageUrl
         val data = hashMapOf(
             "Category" to project.category,
-            "CurrentAmount" to 0.0,
+            "Current_Amount" to 0.0,
             "Description" to project.description,
             "Status" to "active",
             "Target_Amount" to project.goalAmount,
             "Title" to project.title,
             "User_ID" to project.creatorId,
             "backers" to 0,
+            "imageUrl" to project.imageUrl,
             "createdAt" to Timestamp.now(),
             "creatorName" to project.creatorName,
             "dueDate" to project.dueDate,
-            "imageUrl" to project.imageUrl,
             "isOfficial" to false,
             "isWarning" to false,
             "isComplete" to false
@@ -83,33 +84,13 @@ class ProjectRepository {
             .addOnSuccessListener {
                 storage.child(filePath).downloadUrl
                     .addOnSuccessListener { downloadUrl ->
+                        // FIX: 确保复制时使用小写 imageUrl
                         val updatedProject = project.copy(imageUrl = downloadUrl.toString())
                         createProject(updatedProject, onSuccess, onError)
                     }
                     .addOnFailureListener { onError(it) }
             }
             .addOnFailureListener { onError(it) }
-    }
-
-    private fun calculateDaysLeft(dueDateString: String): Int {
-        return try {
-            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            val dueDate = dateFormat.parse(dueDateString)!!
-
-            val today = Date()
-
-            // 计算时间差 (毫秒)
-            val diff = dueDate.time - today.time
-
-            // 转换为天数
-            val days = (diff / (1000 * 60 * 60 * 24)).toInt()
-
-            // 如果项目已经过期，返回 0
-            if (days < 0) 0 else days
-
-        } catch (e: Exception) {
-            0
-        }
     }
 
     fun getAllProjects(
@@ -123,14 +104,15 @@ class ProjectRepository {
             .addOnSuccessListener { snapshot ->
                 val projects = snapshot.documents.mapNotNull { doc ->
                     try {
+                        val dueDate = doc.getTimestamp("dueDate")?.toDate()
 
-                        val dueDateString = doc.getString("dueDate") ?: ""
-
-                        //cal dayleft
-                        val remainingDays = if (dueDateString.isNotEmpty()) {
-                            calculateDaysLeft(dueDateString)
+                        val daysLeft = if (dueDate != null) {
+                            val today = Calendar.getInstance().time
+                            val diffInMillis = dueDate.time - today.time
+                            val days = (diffInMillis / (1000 * 60 * 60 * 24)).toInt()
+                            maxOf(0, days)
                         } else {
-                            -1
+                            0
                         }
 
                         Project(
@@ -139,14 +121,16 @@ class ProjectRepository {
                             description = doc.getString("Description") ?: "",
                             category = doc.getString("Category") ?: "",
                             creatorName = doc.getString("creatorName") ?: "",
+                            creatorId = doc.getString("User_ID") ?: "",
                             currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
-                            goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
+                            goalAmount = doc.getDouble("Target_Amount")
+                                ?: 0.0, // FIXED: 映射 Target_Amount
                             backers = doc.getLong("backers")?.toInt() ?: 0,
-                            daysLeft = remainingDays,
+                            daysLeft = daysLeft,
+                            dueDate = doc.getTimestamp("dueDate"),
                             imageUrl = doc.getString("imageUrl") ?: "",
                             status = doc.getString("Status") ?: "active",
                             createdAt = doc.getTimestamp("createdAt"),
-                            dueDate = dueDateString,
                             isOfficial = doc.getBoolean("isOfficial") ?: false,
                             isWarning = doc.getBoolean("isWarning") ?: false,
                             isComplete = doc.getBoolean("isComplete") ?: false
@@ -172,13 +156,15 @@ class ProjectRepository {
             .addOnSuccessListener { doc ->
                 if (doc.exists()) {
                     try {
+                        val dueDate = doc.getTimestamp("dueDate")?.toDate()
 
-                        val dueDateString = doc.getString("dueDate") ?: ""
-
-                        val remainingDays = if (dueDateString.isNotEmpty()) {
-                            calculateDaysLeft(dueDateString)
+                        val daysLeft = if (dueDate != null) {
+                            val today = Calendar.getInstance().time
+                            val diffInMillis = dueDate.time - today.time
+                            val days = (diffInMillis / (1000 * 60 * 60 * 24)).toInt()
+                            maxOf(0, days)
                         } else {
-                            -1
+                            0
                         }
 
                         val project = Project(
@@ -187,14 +173,16 @@ class ProjectRepository {
                             description = doc.getString("Description") ?: "",
                             category = doc.getString("Category") ?: "",
                             creatorName = doc.getString("creatorName") ?: "",
+                            creatorId = doc.getString("User_ID") ?: "", // FIXED: 映射 User_ID
                             currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
-                            goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
+                            goalAmount = doc.getDouble("Target_Amount")
+                                ?: 0.0, // FIXED: 映射 Target_Amount
                             backers = doc.getLong("backers")?.toInt() ?: 0,
-                            daysLeft = remainingDays,
-                            imageUrl = doc.getString("imageUrl") ?: "",
+                            daysLeft = daysLeft,
+                            dueDate = doc.getTimestamp("dueDate"),
+                            imageUrl = doc.getString("imageUrl") ?: "", // FIXED: 映射 imageUrl
                             status = doc.getString("Status") ?: "active",
                             createdAt = doc.getTimestamp("createdAt"),
-                            dueDate = dueDateString,
                             isOfficial = doc.getBoolean("isOfficial") ?: false,
                             isWarning = doc.getBoolean("isWarning") ?: false,
                             isComplete = doc.getBoolean("isComplete") ?: false
@@ -209,6 +197,29 @@ class ProjectRepository {
             }
             .addOnFailureListener(onError)
     }
+
+    fun checkAndUpdateExpiredProjects() {
+        val db = FirebaseFirestore.getInstance()
+        val today = Date()
+
+        db.collection("projects")
+            .whereEqualTo("Status", "active")
+            .get()
+            .addOnSuccessListener { documents ->
+                documents.forEach { doc ->
+                    val dueDate = doc.getTimestamp("dueDate")?.toDate()
+
+                    if (dueDate != null && today.after(dueDate)) {
+                        doc.reference.update(
+                            mapOf(
+                                "Status" to "expired"
+                            )
+                        )
+                    }
+                }
+            }
+    }
+
 
     // Admin Functions with Action Logging
     suspend fun verifyProject(
@@ -235,6 +246,7 @@ class ProjectRepository {
                 .document(certificationId)
                 .set(certificationData)
                 .await()
+
 
             actionRepository.recordAction(
                 actionType = "verified",
@@ -271,6 +283,7 @@ class ProjectRepository {
                 doc.reference.delete().await()
             }
 
+
             actionRepository.recordAction(
                 actionType = "unverified",
                 projectId = projectId,
@@ -297,6 +310,7 @@ class ProjectRepository {
                 .document(projectId)
                 .update("isWarning", false)
                 .await()
+
 
             actionRepository.recordAction(
                 actionType = "resolved",
@@ -330,6 +344,7 @@ class ProjectRepository {
                 )
                 .await()
 
+
             actionRepository.recordAction(
                 actionType = "suspended",
                 projectId = projectId,
@@ -356,6 +371,7 @@ class ProjectRepository {
                 .document(projectId)
                 .update("Status", "cancelled")
                 .await()
+
 
             actionRepository.recordAction(
                 actionType = "deleted",

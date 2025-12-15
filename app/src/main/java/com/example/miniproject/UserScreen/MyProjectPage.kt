@@ -1,5 +1,6 @@
 package com.example.miniproject.UserScreen
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,18 +15,43 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.rememberAsyncImagePainter
 import com.example.miniproject.BottomNavigationBar
 import com.example.miniproject.ui.theme.*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.Timestamp // 确保导入 Timestamp
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+
+// FIX: 统一 Project Data Class 字段名
+data class Project(
+    val id: String = "",
+    val title: String = "",
+    val description: String = "",
+    val category: String = "",
+    val creatorName: String = "",
+    val creatorId: String = "",
+    val currentAmount: Double = 0.0,
+    val goalAmount: Double = 0.0,
+    val backers: Int = 0,
+    val daysLeft: Int = 0,
+    val imageUrl: String = "", // FIXED: 统一使用小写 imageUrl
+    val status: String = "active",
+    val createdAt: Timestamp? = null,
+    val dueDate: Timestamp? = null,
+    val isOfficial: Boolean = false,
+    val isWarning: Boolean = false,
+    val isComplete: Boolean = false
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,6 +71,8 @@ fun MyProjectsPage(navController: NavController) {
 
     var myProjects by remember { mutableStateOf<List<Project>>(emptyList()) }
     var backedProjects by remember { mutableStateOf<List<Project>>(emptyList()) }
+    var donationAmounts by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
+
 
     val db = FirebaseFirestore.getInstance()
 
@@ -63,17 +91,8 @@ fun MyProjectsPage(navController: NavController) {
         isLoading = true
         try {
             if (selectedTab == 0) {
-                val allSnapshot = db.collection("projects")
-                    .get()
-                    .await()
 
-                android.util.Log.d("MyProjects", "Total projects in DB: ${allSnapshot.documents.size}")
-
-                allSnapshot.documents.forEach { doc ->
-                    val userId = doc.getString("User_ID")
-                    android.util.Log.d("MyProjects", "Project: ${doc.id}, User_ID: '$userId'")
-                }
-
+                // FIX: 查询字段应与创建时写入的 User_ID 保持一致
                 val snapshot = db.collection("projects")
                     .whereEqualTo("User_ID", currentUserId)
                     .get()
@@ -89,13 +108,14 @@ fun MyProjectsPage(navController: NavController) {
                             title = doc.getString("Title") ?: "",
                             description = doc.getString("Description") ?: "",
                             category = doc.getString("Category") ?: "",
-                            goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
-                            currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
+                            goalAmount = doc.getDouble("Target_Amount") ?: 0.0, // FIXED: Target_Amount
+                            currentAmount = doc.getDouble("Current_Amount") ?: 0.0, // FIXED: Current_Amount
                             backers = doc.getLong("backers")?.toInt() ?: 0,
-                            daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
-                            creatorId = doc.getString("User_ID") ?: "",
+                            dueDate = doc.getTimestamp("dueDate"),
+                            creatorId = doc.getString("User_ID") ?: "", // FIXED: User_ID
                             creatorName = doc.getString("creatorName") ?: "",
-                            status = doc.getString("Status") ?: "active"
+                            status = doc.getString("Status") ?: "active",
+                            imageUrl = doc.getString("imageUrl") ?: "" // FIXED: imageUrl
                         )
                         android.util.Log.d("MyProjects", "Successfully mapped: ${project.title}")
                         project
@@ -108,17 +128,25 @@ fun MyProjectsPage(navController: NavController) {
                 android.util.Log.d("MyProjects", "Final myProjects count: ${myProjects.size}")
 
             } else {
-                val backingsSnapshot = db.collection("backings")
+                val donationsSnapshot = db.collection("donations")
                     .whereEqualTo("userId", currentUserId)
                     .get()
                     .await()
 
-                android.util.Log.d("MyProjects", "Backings found: ${backingsSnapshot.documents.size}")
+                android.util.Log.d("MyProjects", "Donations found: ${donationsSnapshot.documents.size}")
 
-                val projectIds = backingsSnapshot.documents.mapNotNull {
-                    it.getString("projectId")
-                }.distinct()
+                val tempDonationAmounts = mutableMapOf<String, Double>()
 
+                donationsSnapshot.documents.forEach { doc ->
+                    val projectId = doc.getString("projectId")
+                    val amount = doc.getLong("amount")?.toDouble() ?: 0.0
+
+                    if (projectId != null) {
+                        tempDonationAmounts[projectId] = (tempDonationAmounts[projectId] ?: 0.0) + amount
+                    }
+                }
+
+                val projectIds = tempDonationAmounts.keys.toList()
                 android.util.Log.d("MyProjects", "Unique project IDs: ${projectIds.size}")
 
                 if (projectIds.isNotEmpty()) {
@@ -136,13 +164,15 @@ fun MyProjectsPage(navController: NavController) {
                                     title = doc.getString("Title") ?: "",
                                     description = doc.getString("Description") ?: "",
                                     category = doc.getString("Category") ?: "",
-                                    goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
-                                    currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
+                                    goalAmount = doc.getDouble("Target_Amount") ?: 0.0, // FIXED: Target_Amount
+                                    currentAmount = doc.getDouble("Current_Amount") ?: 0.0, // FIXED: Current_Amount
                                     backers = doc.getLong("backers")?.toInt() ?: 0,
-                                    daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
-                                    creatorId = doc.getString("User_ID") ?: "",
+                                    dueDate = doc.getTimestamp("dueDate"),
+                                    creatorId = doc.getString("User_ID") ?: "", // FIXED: User_ID
                                     creatorName = doc.getString("creatorName") ?: "",
-                                    status = doc.getString("Status") ?: "active"
+                                    status = doc.getString("Status") ?: "active",
+                                    imageUrl = doc.getString("imageUrl") ?: "" // FIXED: imageUrl
+
                                 )
                             } catch (e: Exception) {
                                 android.util.Log.e("MyProjects", "Error mapping backed project: ${e.message}", e)
@@ -152,16 +182,17 @@ fun MyProjectsPage(navController: NavController) {
                         allProjects.addAll(projects)
                     }
                     backedProjects = allProjects
+                    donationAmounts = tempDonationAmounts
                     android.util.Log.d("MyProjects", "Final backed projects count: ${backedProjects.size}")
                 } else {
                     backedProjects = emptyList()
+                    donationAmounts = emptyMap()
                 }
             }
         } catch (e: Exception) {
             android.util.Log.e("MyProjects", "Error loading projects: ${e.message}", e)
             e.printStackTrace()
             scope.launch {
-                snackbarHostState.showSnackbar("Failed to load projects: ${e.message}")
             }
         }
         isLoading = false
@@ -201,6 +232,9 @@ fun MyProjectsPage(navController: NavController) {
                     contentDescription = "Create Project"
                 )
             }
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
         }
     ) { paddingValues ->
         Column(
@@ -300,12 +334,125 @@ fun MyProjectsPage(navController: NavController) {
                             onAction = { navController.navigate("mainPage") }
                         )
                     } else {
+                        var sortOption by remember { mutableStateOf(0) }
+                        var sortDescending by remember { mutableStateOf(true) }
+                        var expanded by remember { mutableStateOf(false) }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box {
+                                TextButton(onClick = { expanded = true }) {
+                                    Icon(Icons.Default.Sort, contentDescription = null, tint = PrimaryBlue)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = when(sortOption) {
+                                            0 -> "My Donation"
+                                            1 -> "Progress"
+                                            2 -> "Days Left"
+                                            else -> "Sort"
+                                        },
+                                        color = PrimaryBlue
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false },
+                                    modifier = Modifier.background(BackgroundWhite)
+                                ) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                "My Donation",
+                                                fontSize = 14.sp,
+                                                fontWeight = if (sortOption == 0) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (sortOption == 0) PrimaryBlue else TextPrimary
+                                            )
+                                        },
+                                        onClick = { sortOption = 0; expanded = false },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.VolunteerActivism,
+                                                contentDescription = null,
+                                                tint = if (sortOption == 0) PrimaryBlue else TextSecondary
+                                            )
+                                        }
+                                    )
+                                    HorizontalDivider(color = BorderGray)
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                "Progress",
+                                                fontSize = 14.sp,
+                                                fontWeight = if (sortOption == 1) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (sortOption == 1) PrimaryBlue else TextPrimary
+                                            )
+                                        },
+                                        onClick = { sortOption = 1; expanded = false },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.TrendingUp,
+                                                contentDescription = null,
+                                                tint = if (sortOption == 1) PrimaryBlue else TextSecondary
+                                            )
+                                        }
+                                    )
+                                    HorizontalDivider(color = BorderGray)
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                "Days Left",
+                                                fontSize = 14.sp,
+                                                fontWeight = if (sortOption == 2) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (sortOption == 2) PrimaryBlue else TextPrimary
+                                            )
+                                        },
+                                        onClick = { sortOption = 2; expanded = false },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.Schedule,
+                                                contentDescription = null,
+                                                tint = if (sortOption == 2) PrimaryBlue else TextSecondary
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+
+                            IconButton(onClick = { sortDescending = !sortDescending }) {
+                                Icon(
+                                    imageVector = if (sortDescending) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                    contentDescription = "Toggle sort direction",
+                                    tint = PrimaryBlue
+                                )
+                            }
+                        }
+
+                        val sortedProjects = when(sortOption) {
+                            0 -> if (sortDescending)
+                                backedProjects.sortedByDescending { donationAmounts[it.id] ?: 0.0 }
+                            else backedProjects.sortedBy { donationAmounts[it.id] ?: 0.0 }
+                            1 -> if (sortDescending)
+                                backedProjects.sortedByDescending { if (it.goalAmount > 0) it.currentAmount / it.goalAmount else 0.0 }
+                            else backedProjects.sortedBy { if (it.goalAmount > 0) it.currentAmount / it.goalAmount else 0.0 }
+                            2 -> if (sortDescending)
+                                backedProjects.sortedByDescending { it.daysLeft }
+                            else backedProjects.sortedBy { it.daysLeft }
+                            else -> backedProjects
+                        }
+
                         LazyColumn(
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(backedProjects) { project ->
+                            items(sortedProjects) { project ->
                                 BackedProjectCard(
                                     project = project,
+                                    donatedAmount = donationAmounts[project.id] ?: 0.0,
                                     onClick = {
                                         navController.navigate("projectDetail/${project.id}")
                                     }
@@ -343,7 +490,26 @@ fun MyProjectsPage(navController: NavController) {
                 Button(
                     onClick = {
                         showDeleteDialog = false
+                        val projectId = projectToDelete?.id
+                        val projectTitle = projectToDelete?.title
                         projectToDelete = null
+
+                        scope.launch {
+                            try {
+                                if (projectId != null) {
+                                    db.collection("projects")
+                                        .document(projectId)
+                                        .delete()
+                                        .await()
+
+                                    myProjects = myProjects.filter { it.id != projectId }
+
+                                    snackbarHostState.showSnackbar("Project deleted successfully")
+                                }
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("Failed to delete: ${e.message}")
+                            }
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = ErrorRed
@@ -380,7 +546,6 @@ fun MyProjectCard(
         colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
     ) {
         Column {
-            // Project Image with Status Badge and Menu
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -397,26 +562,51 @@ fun MyProjectCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = when (project.category) {
-                        "Technology" -> Icons.Default.Computer
-                        "Charity" -> Icons.Default.Favorite
-                        "Education" -> Icons.Default.School
-                        "Medical" -> Icons.Default.LocalHospital
-                        "Games" -> Icons.Default.SportsEsports
-                        else -> Icons.Default.Image
-                    },
-                    contentDescription = project.category,
-                    modifier = Modifier.size(80.dp),
-                    tint = when (project.category) {
-                        "Technology" -> PrimaryBlue.copy(alpha = 0.5f)
-                        "Charity" -> SuccessGreen.copy(alpha = 0.5f)
-                        "Education" -> WarningOrange.copy(alpha = 0.5f)
-                        "Medical" -> ErrorRed.copy(alpha = 0.5f)
-                        "Games" -> InfoBlue.copy(alpha = 0.5f)
-                        else -> TextSecondary.copy(alpha = 0.5f)
+                if (project.imageUrl.isNotEmpty()) {
+                    Image(
+                        painter = rememberAsyncImagePainter(model = project.imageUrl),
+                        contentDescription = project.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                when (project.category) {
+                                    "Technology" -> PrimaryBlue.copy(alpha = 0.2f)
+                                    "Charity" -> SuccessGreen.copy(alpha = 0.2f)
+                                    "Education" -> WarningOrange.copy(alpha = 0.2f)
+                                    "Medical" -> ErrorRed.copy(alpha = 0.2f)
+                                    "Games" -> InfoBlue.copy(alpha = 0.2f)
+                                    else -> TextSecondary.copy(alpha = 0.2f)
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = when (project.category) {
+                                "Technology" -> Icons.Default.Computer
+                                "Charity" -> Icons.Default.Favorite
+                                "Education" -> Icons.Default.School
+                                "Medical" -> Icons.Default.LocalHospital
+                                "Games" -> Icons.Default.SportsEsports
+                                else -> Icons.Default.Image
+                            },
+                            contentDescription = project.category,
+                            modifier = Modifier.size(80.dp),
+                            tint = when (project.category) {
+                                "Technology" -> PrimaryBlue.copy(alpha = 0.5f)
+                                "Charity" -> SuccessGreen.copy(alpha = 0.5f)
+                                "Education" -> WarningOrange.copy(alpha = 0.5f)
+                                "Medical" -> ErrorRed.copy(alpha = 0.5f)
+                                "Games" -> InfoBlue.copy(alpha = 0.5f)
+                                else -> TextSecondary.copy(alpha = 0.5f)
+                            }
+                        )
                     }
-                )
+                }
 
                 Row(
                     modifier = Modifier
@@ -539,7 +729,6 @@ fun MyProjectCard(
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
-                // Title
                 Text(
                     text = project.title,
                     fontSize = 18.sp,
@@ -578,7 +767,6 @@ fun MyProjectCard(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Progress Info Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -658,6 +846,7 @@ fun MyProjectCard(
 @Composable
 fun BackedProjectCard(
     project: Project,
+    donatedAmount: Double,
     onClick: () -> Unit
 ) {
     Card(
@@ -670,7 +859,6 @@ fun BackedProjectCard(
         colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
     ) {
         Column {
-            // Project Image
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -687,26 +875,35 @@ fun BackedProjectCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = when (project.category) {
-                        "Technology" -> Icons.Default.Computer
-                        "Charity" -> Icons.Default.Favorite
-                        "Education" -> Icons.Default.School
-                        "Medical" -> Icons.Default.LocalHospital
-                        "Games" -> Icons.Default.SportsEsports
-                        else -> Icons.Default.Image
-                    },
-                    contentDescription = project.category,
-                    modifier = Modifier.size(80.dp),
-                    tint = when (project.category) {
-                        "Technology" -> PrimaryBlue.copy(alpha = 0.5f)
-                        "Charity" -> SuccessGreen.copy(alpha = 0.5f)
-                        "Education" -> WarningOrange.copy(alpha = 0.5f)
-                        "Medical" -> ErrorRed.copy(alpha = 0.5f)
-                        "Games" -> InfoBlue.copy(alpha = 0.5f)
-                        else -> TextSecondary.copy(alpha = 0.5f)
-                    }
-                )
+                if (project.imageUrl.isNotEmpty()) {
+                    Image(
+                        painter = rememberAsyncImagePainter(model = project.imageUrl),
+                        contentDescription = project.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = when (project.category) {
+                            "Technology" -> Icons.Default.Computer
+                            "Charity" -> Icons.Default.Favorite
+                            "Education" -> Icons.Default.School
+                            "Medical" -> Icons.Default.LocalHospital
+                            "Games" -> Icons.Default.SportsEsports
+                            else -> Icons.Default.Image
+                        },
+                        contentDescription = project.category,
+                        modifier = Modifier.size(80.dp),
+                        tint = when (project.category) {
+                            "Technology" -> PrimaryBlue.copy(alpha = 0.5f)
+                            "Charity" -> SuccessGreen.copy(alpha = 0.5f)
+                            "Education" -> WarningOrange.copy(alpha = 0.5f)
+                            "Medical" -> ErrorRed.copy(alpha = 0.5f)
+                            "Games" -> InfoBlue.copy(alpha = 0.5f)
+                            else -> TextSecondary.copy(alpha = 0.5f)
+                        }
+                    )
+                }
             }
 
             Column(
@@ -802,10 +999,12 @@ fun BackedProjectCard(
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            "RM 100",
+                            "RM ${String.format("%.0f", donatedAmount)}",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TextSecondary
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -832,11 +1031,17 @@ fun BackedProjectCard(
                         )
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
                         Text(
                             text = project.creatorName,
                             fontSize = 13.sp,
-                            color = TextSecondary
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
                         Text(
                             text = " • ",
@@ -847,7 +1052,9 @@ fun BackedProjectCard(
                             text = project.category,
                             fontSize = 13.sp,
                             color = PrimaryBlue,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -858,7 +1065,7 @@ fun BackedProjectCard(
 
 @Composable
 fun EmptyStateView(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     title: String,
     message: String,
     actionText: String,
