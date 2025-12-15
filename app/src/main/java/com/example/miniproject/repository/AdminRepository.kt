@@ -284,18 +284,18 @@ class AdminActionRepository {
     fun filterActionsByType(actions: List<AdminAction>, filter: String): List<AdminAction> {
         return when (filter) {
             "All" -> actions
-            "Verifications" -> actions.filter {
-                it.actionType == "verified" || it.actionType == "unverified"
-            }
-            "Flags & Warnings" -> actions.filter {
-                it.actionType == "flagged" || it.actionType == "unflagged" ||
-                        it.actionType == "suspended" || it.actionType == "resolved"
+            "Verifications" -> actions.filter { it.actionType == "verified" }
+            "Unverifications" -> actions.filter { it.actionType == "unverified" }
+            "Flags" -> actions.filter {
+                it.actionType == "flagged" ||
+                        it.actionType == "unflagged" ||
+                        it.actionType == "suspended" ||
+                        it.actionType == "resolved"
             }
             "Deletions" -> actions.filter { it.actionType == "deleted" }
             else -> actions
         }
     }
-
     suspend fun getActionsByAdmin(adminId: String): Result<List<AdminAction>> {
         return try {
             val snapshot = actionsRef
@@ -385,7 +385,10 @@ class AdminActionRepository {
 
                 batch.commit().await()
 
-                // Update metadata
+                // Delete old metadata
+                metadataRef.delete().await()
+
+                // Create new metadata for current month
                 metadataRef.set(
                     hashMapOf(
                         "month_key" to currentMonthKey,

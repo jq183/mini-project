@@ -103,17 +103,6 @@ class ProjectRepository {
             .addOnSuccessListener { snapshot ->
                 val projects = snapshot.documents.mapNotNull { doc ->
                     try {
-                        val dueDate = doc.getTimestamp("dueDate")?.toDate()
-
-                        val daysLeft = if (dueDate != null) {
-                            val today = Calendar.getInstance().time
-                            val diffInMillis = dueDate.time - today.time
-                            val days = (diffInMillis / (1000 * 60 * 60 * 24)).toInt()
-                            maxOf(0, days)
-                        } else {
-                            0
-                        }
-
                         Project(
                             id = doc.id,
                             title = doc.getString("Title") ?: "",
@@ -123,8 +112,8 @@ class ProjectRepository {
                             currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
                             goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
                             backers = doc.getLong("backers")?.toInt() ?: 0,
-                            dueDate = doc.getTimestamp("dueDate"),
-                            ImageUrl = doc.getString("ImageUrl") ?: "",
+                            dueDate = doc.getTimestamp("dueDate"), // This will auto-calculate daysLeft
+                            ImageUrl = doc.getString("ImageUrl") ?: "", // Fixed: was "imageUrl", now "ImageUrl"
                             status = doc.getString("Status") ?: "active",
                             createdAt = doc.getTimestamp("createdAt"),
                             isOfficial = doc.getBoolean("isOfficial") ?: false,
@@ -162,7 +151,7 @@ class ProjectRepository {
                             goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
                             backers = doc.getLong("backers")?.toInt() ?: 0,
                             dueDate = doc.getTimestamp("dueDate"),
-                            ImageUrl = doc.getString("imageUrl") ?: "",
+                            ImageUrl = doc.getString("ImageUrl") ?: "", // Fixed: was "imageUrl", now "ImageUrl"
                             status = doc.getString("Status") ?: "active",
                             createdAt = doc.getTimestamp("createdAt"),
                             isOfficial = doc.getBoolean("isOfficial") ?: false,

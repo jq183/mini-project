@@ -91,9 +91,10 @@ fun AdminDashboardPage(navController: NavController) {
                     it.getBoolean("isWarning") == true
                 }.size
 
-                // Calculate total funding
-                val totalFunding = allProjects.sumOf {
-                    it.getDouble("Current_Amount") ?: 0.0
+                // Calculate total funding from donations collection
+                val donationsSnapshot = db.collection("donations").get().await()
+                val totalFunding = donationsSnapshot.documents.sumOf {
+                    it.getDouble("amount") ?: 0.0
                 }
 
                 // Fetch reports data

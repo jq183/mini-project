@@ -31,6 +31,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.lazy.rememberLazyListState
 import com.example.miniproject.UserScreen.PageControl
+import com.example.miniproject.repository.AdminRepository
 
 data class AdminAction(
     val id: String = "",
@@ -64,27 +65,39 @@ fun AdminHistoryPage(navController: NavController) {
     val filters = listOf(
         "All",
         "Verifications",
-        "Flags & Warnings",
+        "Unverifications",
+        "Flags",
         "Deletions"
     )
+
 
     LaunchedEffect(Unit) {
         scope.launch {
             isLoading = true
             errorMessage = null
 
-            val result = actionRepository.getAllActions()
+            // Get current admin first
+            val adminRepository = AdminRepository()
+            val currentAdmin = adminRepository.getCurrentAdmin()
 
-            result.fold(
-                onSuccess = { actions ->
-                    historyActions = actions
-                    isLoading = false
-                },
-                onFailure = { exception ->
-                    errorMessage = exception.message ?: "Failed to load action history"
-                    isLoading = false
-                }
-            )
+            if (currentAdmin != null) {
+                // Fetch only this admin's actions
+                val result = actionRepository.getActionsByAdmin(currentAdmin.adminId)
+
+                result.fold(
+                    onSuccess = { actions ->
+                        historyActions = actions
+                        isLoading = false
+                    },
+                    onFailure = { exception ->
+                        errorMessage = exception.message ?: "Failed to load action history"
+                        isLoading = false
+                    }
+                )
+            } else {
+                errorMessage = "Unable to identify current admin"
+                isLoading = false
+            }
         }
     }
     LaunchedEffect(listState) {
@@ -136,17 +149,25 @@ fun AdminHistoryPage(navController: NavController) {
                     IconButton(onClick = {
                         scope.launch {
                             isLoading = true
-                            val result = actionRepository.getAllActions()
-                            result.fold(
-                                onSuccess = { actions ->
-                                    historyActions = actions
-                                    isLoading = false
-                                },
-                                onFailure = { exception ->
-                                    errorMessage = exception.message
-                                    isLoading = false
-                                }
-                            )
+                            val adminRepository = AdminRepository()
+                            val currentAdmin = adminRepository.getCurrentAdmin()
+
+                            if (currentAdmin != null) {
+                                val result = actionRepository.getActionsByAdmin(currentAdmin.adminId)
+                                result.fold(
+                                    onSuccess = { actions ->
+                                        historyActions = actions
+                                        isLoading = false
+                                    },
+                                    onFailure = { exception ->
+                                        errorMessage = exception.message
+                                        isLoading = false
+                                    }
+                                )
+                            } else {
+                                errorMessage = "Unable to identify current admin"
+                                isLoading = false
+                            }
                         }
                     }) {
                         Icon(

@@ -73,12 +73,6 @@ fun AdminActionsPage(navController: NavController) {
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.History,
-                            contentDescription = null,
-                            tint = PrimaryBlue,
-                            modifier = Modifier.size(28.dp)
-                        )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = "Admin Actions",
@@ -244,7 +238,7 @@ fun AdminRankingCard(topAdmins: List<AdminStats>) {
                         }
                     }
 
-                    // Action breakdown
+                    // Action breakdown - show ALL action types
                     Column(
                         horizontalAlignment = Alignment.End,
                         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -256,10 +250,17 @@ fun AdminRankingCard(topAdmins: List<AdminStats>) {
                                 color = SuccessGreen
                             )
                         }
-                        if (admin.deletions > 0) {
+                        if (admin.unverifications > 0) {
                             ActionStatRow(
-                                count = admin.deletions,
-                                label = "Deleted",
+                                count = admin.unverifications,
+                                label = "Unverified",
+                                color = WarningOrange
+                            )
+                        }
+                        if (admin.suspended > 0) {
+                            ActionStatRow(
+                                count = admin.suspended,
+                                label = "Suspended",
                                 color = ErrorRed
                             )
                         }
@@ -268,6 +269,13 @@ fun AdminRankingCard(topAdmins: List<AdminStats>) {
                                 count = admin.resolved,
                                 label = "Resolved",
                                 color = InfoBlue
+                            )
+                        }
+                        if (admin.deletions > 0) {
+                            ActionStatRow(
+                                count = admin.deletions,
+                                label = "Deleted",
+                                color = Color(0xFF7F8C8D)
                             )
                         }
                     }
@@ -311,12 +319,13 @@ fun ActionStatRow(count: Int, label: String, color: Color) {
     }
 }
 
+// Update the FilterTabs composable
 @Composable
 fun FilterTabs(
     selectedFilter: String,
     onFilterSelected: (String) -> Unit
 ) {
-    val filters = listOf("All", "Verifications", "Flags", "Deletions")
+    val filters = listOf("All", "Verifications", "Unverifications", "Flags", "Deletions")
 
     ScrollableTabRow(
         selectedTabIndex = filters.indexOf(selectedFilter),
@@ -340,6 +349,8 @@ fun FilterTabs(
         }
     }
 }
+
+
 
 @Composable
 fun ActionItemCard(action: AdminAction) {
