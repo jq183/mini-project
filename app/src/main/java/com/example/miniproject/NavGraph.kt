@@ -63,6 +63,8 @@ import com.example.miniproject.ui.theme.BackgroundWhite
 import com.example.miniproject.ui.theme.PrimaryBlue
 import com.example.miniproject.ui.theme.TextSecondary
 import com.google.firebase.auth.FirebaseAuth
+import com.example.miniproject.UserScreen.ProjectAnalyticsPage
+import com.example.miniproject.UserScreen.ReportProjectPage
 
 @Composable
 fun AppNavigation() {
@@ -106,6 +108,33 @@ fun AppNavigation() {
 
         composable("projectDetail/{projectId}") { backStackEntry ->
             ProjectDetailPage(
+                navController = navController,
+                projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            )
+        }
+        composable(
+            route = "projectAnalytics/{projectId}/{title}/{currentAmount}/{goalAmount}/{backers}/{createdAt}",
+            arguments = listOf(
+                navArgument("projectId") { type = NavType.StringType },
+                navArgument("title") { type = NavType.StringType },
+                navArgument("currentAmount") { type = NavType.FloatType },
+                navArgument("goalAmount") { type = NavType.FloatType },
+                navArgument("backers") { type = NavType.IntType },
+                navArgument("createdAt") { type = NavType.LongType }
+            )
+        ) { backStackEntry ->
+            ProjectAnalyticsPage(
+                navController = navController,
+                projectId = backStackEntry.arguments?.getString("projectId") ?: "",
+                title = backStackEntry.arguments?.getString("title") ?: "",
+                currentAmount = backStackEntry.arguments?.getFloat("currentAmount") ?: 0f,
+                goalAmount = backStackEntry.arguments?.getFloat("goalAmount") ?: 0f,
+                backers = backStackEntry.arguments?.getInt("backers") ?: 0,
+                createdAt = backStackEntry.arguments?.getLong("createdAt") ?: 0L
+            )
+        }
+        composable("reportProject/{projectId}") { backStackEntry ->
+            ReportProjectPage(
                 navController = navController,
                 projectId = backStackEntry.arguments?.getString("projectId") ?: ""
             )

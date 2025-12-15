@@ -2,6 +2,7 @@ package com.example.miniproject.repository
 
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 
 data class Report(
@@ -321,5 +322,48 @@ class ReportRepository {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    suspend fun addReport(report: Report): Result<Boolean> {
+        return try {
+            val newReport = hashMapOf<String, Any?>(
+                "Admin_ID" to report.reportedBy.takeIf { false }, // can remove if unnecessary
+                "Category" to report.reportCategory,
+                "Description" to report.description,
+                "Project_ID" to report.projectId,
+                "Report_ID" to report.id,
+                "Reported_at" to (report.reportedAt ?: Timestamp.now()),
+                "Resolved_at" to report.resolvedAt,
+                "Result" to report.adminNotes,
+                "Status" to report.status,
+                "User_ID" to report.reportedBy,
+                "is_anonymous" to report.isAnonymous
+            )
+
+            db.collection("Reports")
+                .document(report.id)
+                .set(newReport)
+                .await()
+
+            Result.success(true)
+        } catch (e: Exception) {
+            // Use Log.e to make sure you see the error
+            android.util.Log.e("ReportRepository", "Failed to add report", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getNextReportId(): String {
+        val snapshot = FirebaseFirestore.getInstance()
+            .collection("Reports")
+            .orderBy("Report_ID", Query.Direction.DESCENDING)
+            .limit(1)
+            .get()
+            .await()
+
+        val lastId = snapshot.documents.firstOrNull()?.getString("Report_ID") ?: "R000"
+        val lastNumber = lastId.removePrefix("R").toIntOrNull() ?: 0
+        val nextNumber = lastNumber + 1
+        return "R" + nextNumber.toString().padStart(3, '0')
     }
 }
