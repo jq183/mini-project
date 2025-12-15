@@ -26,8 +26,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.miniproject.repository.ProjectRepository
 import com.example.miniproject.ui.theme.* // 假设您的主题颜色在这里
+import com.google.firebase.Timestamp
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -76,6 +78,11 @@ fun ProjectDetailPage(
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { navController.navigate("projectAnalytics/$projectId") }) {
+                        Icon(Icons.Default.BarChart, contentDescription = "Analytics")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundWhite)
@@ -132,7 +139,8 @@ fun ProjectDetailPage(
                     project = project!!,
                     paddingValues = paddingValues,
                     showCertifiedTips = showCertifiedTips,
-                    onVerifiedIconClick = { showCertifiedTips = !showCertifiedTips }
+                    onVerifiedIconClick = { showCertifiedTips = !showCertifiedTips },
+                    navController = navController
                 )
             }
         }
@@ -147,7 +155,8 @@ fun ProjectDetailContent(
     project: Project,
     paddingValues: PaddingValues,
     showCertifiedTips: Boolean,
-    onVerifiedIconClick: () -> Unit
+    onVerifiedIconClick: () -> Unit,
+    navController: NavController
 ) {
     val scrollState = rememberScrollState()
     val progress = (project.currentAmount / project.goalAmount).toFloat().coerceIn(0f, 1f)
@@ -258,11 +267,22 @@ fun ProjectDetailContent(
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "${(progress * 100).toInt()}% Funded",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "${(progress * 100).toInt()}% Funded",
+                            fontSize = 12.sp,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(onClick = { navController.navigate("reportProject/${project.id}") }) {
+                            Icon(
+                                imageVector = Icons.Default.Report,
+                                contentDescription = "Report Project",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -413,4 +433,4 @@ fun ProjectDetailContent(
                 }
             }
         }
-    }
+}

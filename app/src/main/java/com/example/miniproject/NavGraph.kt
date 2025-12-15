@@ -50,6 +50,7 @@ import com.example.miniproject.UserScreen.MyProjectsPage
 import com.example.miniproject.UserScreen.ProfileScreen.ChangeEmailPage
 import com.example.miniproject.UserScreen.ProfileScreen.ChangePwPage
 import com.example.miniproject.UserScreen.ProfileScreen.ProfilePage
+import com.example.miniproject.UserScreen.ProjectAnalyticsPage
 import com.example.miniproject.UserScreen.ProjectDetailPage
 import com.example.miniproject.admin.AdminLogin
 import com.example.miniproject.admin.ChangePasswordScreen
@@ -100,6 +101,12 @@ fun AppNavigation() {
 
         composable("projectDetail/{projectId}") { backStackEntry ->
             ProjectDetailPage(
+                navController = navController,
+                projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            )
+        }
+        composable("projectAnalytics/{projectId}") { backStackEntry ->
+            ProjectAnalyticsPage(
                 navController = navController,
                 projectId = backStackEntry.arguments?.getString("projectId") ?: ""
             )
