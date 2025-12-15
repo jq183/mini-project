@@ -176,7 +176,7 @@ fun AdminProjectDetail(
             ) {
                 item {
                     AsyncImage(
-                        model = project!!.imageUrl,
+                        model = project!!.ImageUrl,
                         contentDescription = "Project Image",
                         modifier = Modifier
                             .fillMaxWidth()

@@ -41,12 +41,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 
-// import com.example.miniproject.R // Uncomment if you use custom drawable resources
-
-// ==========================================
-// PAYMENT OPTION SELECTION PAGE
-// ==========================================
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentOption(
@@ -133,7 +127,7 @@ fun PaymentOption(
                         iconVector = Icons.Default.AccountBalance,
                         onClick = {
                             // Navigate to Bank Transfer Page passing the amount
-                            navController.navigate("bankTransferPage/$amount")
+                            navController.navigate("onlinePage/$amount")
                         }
                     )
 
@@ -145,7 +139,7 @@ fun PaymentOption(
                         iconVector = Icons.Default.AccountBalanceWallet,
                         onClick = {
                             // Navigate to Wallet Payment Page passing the amount
-                            navController.navigate("walletPaymentPage/$amount")
+                            navController.navigate("walletPage/$amount")
                         }
                     )
                 }

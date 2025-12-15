@@ -59,7 +59,7 @@ class ProjectRepository {
             "CreatorName" to project.creatorName,
             "DaysLeft" to 30,
             "Status" to "active",
-            "ImageUrl" to project.imageUrl,
+            "ImageUrl" to project.ImageUrl,
             "CreatedAt" to Timestamp.now(),
             "isOfficial" to false,
             "isWarning" to false,
@@ -84,7 +84,7 @@ class ProjectRepository {
             .addOnSuccessListener {
                 storage.child(filePath).downloadUrl
                     .addOnSuccessListener { downloadUrl ->
-                        val updatedProject = project.copy(imageUrl = downloadUrl.toString())
+                        val updatedProject = project.copy(ImageUrl = downloadUrl.toString())
                         createProject(updatedProject, onSuccess, onError)
                     }
                     .addOnFailureListener { onError(it) }
@@ -103,6 +103,17 @@ class ProjectRepository {
             .addOnSuccessListener { snapshot ->
                 val projects = snapshot.documents.mapNotNull { doc ->
                     try {
+                        val dueDate = doc.getTimestamp("dueDate")?.toDate()
+
+                        val daysLeft = if (dueDate != null) {
+                            val today = Calendar.getInstance().time
+                            val diffInMillis = dueDate.time - today.time
+                            val days = (diffInMillis / (1000 * 60 * 60 * 24)).toInt()
+                            maxOf(0, days)
+                        } else {
+                            0
+                        }
+
                         Project(
                             id = doc.id,
                             title = doc.getString("Title") ?: "",
@@ -112,8 +123,8 @@ class ProjectRepository {
                             currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
                             goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
                             backers = doc.getLong("backers")?.toInt() ?: 0,
-                            daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
-                            imageUrl = doc.getString("imageUrl") ?: "",
+                            dueDate = doc.getTimestamp("dueDate"),
+                            ImageUrl = doc.getString("ImageUrl") ?: "",
                             status = doc.getString("Status") ?: "active",
                             createdAt = doc.getTimestamp("createdAt"),
                             isOfficial = doc.getBoolean("isOfficial") ?: false,
@@ -150,8 +161,8 @@ class ProjectRepository {
                             currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
                             goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
                             backers = doc.getLong("backers")?.toInt() ?: 0,
-                            daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
-                            imageUrl = doc.getString("imageUrl") ?: "",
+                            dueDate = doc.getTimestamp("dueDate"),
+                            ImageUrl = doc.getString("imageUrl") ?: "",
                             status = doc.getString("Status") ?: "active",
                             createdAt = doc.getTimestamp("createdAt"),
                             isOfficial = doc.getBoolean("isOfficial") ?: false,
@@ -174,29 +185,23 @@ class ProjectRepository {
         val today = Date()
 
         db.collection("projects")
-            .whereEqualTo("status", "active")
+            .whereEqualTo("Status", "active")
             .get()
             .addOnSuccessListener { documents ->
                 documents.forEach { doc ->
-                    val project = doc.toObject(Project::class.java)
-                    val createdAt = project.createdAt?.toDate() ?: return@forEach
+                    val dueDate = doc.getTimestamp("dueDate")?.toDate()
 
-                    val expiryDate = Calendar.getInstance().apply {
-                        time = createdAt
-                        add(Calendar.DAY_OF_YEAR, project.daysLeft)
-                    }.time
-
-                    if (today.after(expiryDate)) {
+                    if (dueDate != null && today.after(dueDate)) {
                         doc.reference.update(
                             mapOf(
-                                "status" to "expired",
-                                "daysLeft" to 0
+                                "Status" to "expired"
                             )
                         )
                     }
                 }
             }
     }
+
 
     // Admin Functions with Action Logging
     suspend fun verifyProject(

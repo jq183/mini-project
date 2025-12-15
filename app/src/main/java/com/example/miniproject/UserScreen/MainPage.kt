@@ -28,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -36,6 +38,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.miniproject.BottomNavigationBar
 import com.example.miniproject.ui.theme.*
 import com.google.firebase.Timestamp
@@ -44,9 +48,11 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.Random
+import java.util.concurrent.TimeUnit
 
 data class Project(
     val id: String = "",
@@ -58,14 +64,25 @@ data class Project(
     val currentAmount: Double = 0.0,
     val goalAmount: Double = 0.0,
     val backers: Int = 0,
-    val daysLeft: Int = 0,
-    val imageUrl: String = "",
+    val dueDate: Timestamp? = null,
+    val ImageUrl: String = "",
     val status: String = "active",
     val createdAt: Timestamp? = null,
     val isOfficial: Boolean = false,
     val isWarning: Boolean = false,
     val isComplete: Boolean = false
-)
+){
+    val daysLeft: Int
+        get() = if (dueDate != null) {
+            val today = Calendar.getInstance().time
+            val dueDateValue = dueDate.toDate()
+            val diffInMillis = dueDateValue.time - today.time
+            val days = TimeUnit.MILLISECONDS.toDays(diffInMillis).toInt()
+            maxOf(0, days)
+        } else {
+            0
+        }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -181,15 +198,6 @@ fun MainPage(navController: NavController) {
                             fontWeight = FontWeight.Bold,
                             color = PrimaryBlue,
                         )
-                    },
-                    actions = {
-                        IconButton(onClick = { /*  */ }) {
-                            Icon(
-                                imageVector = Icons.Default.Notifications,
-                                contentDescription = "Notifications",
-                                tint = PrimaryBlue
-                            )
-                        }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = BackgroundWhite
@@ -531,6 +539,8 @@ fun ProjectCard(
     onClick: () -> Unit
 ) {
     var showCertifiedTips by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
 
     LaunchedEffect(project.id) {
         println("Project: ${project.title}")
@@ -565,26 +575,54 @@ fun ProjectCard(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = when (project.category) {
-                            "Technology" -> Icons.Default.Computer
-                            "Charity" -> Icons.Default.Favorite
-                            "Education" -> Icons.Default.School
-                            "Medical" -> Icons.Default.LocalHospital
-                            "Games" -> Icons.Default.SportsEsports
-                            else -> Icons.Default.Image
-                        },
-                        contentDescription = project.category,
-                        modifier = Modifier.size(80.dp),
-                        tint = when (project.category) {
-                            "Technology" -> PrimaryBlue.copy(alpha = 0.5f)
-                            "Charity" -> SuccessGreen.copy(alpha = 0.5f)
-                            "Education" -> WarningOrange.copy(alpha = 0.5f)
-                            "Medical" -> ErrorRed.copy(alpha = 0.5f)
-                            "Games" -> InfoBlue.copy(alpha = 0.5f)
-                            else -> TextSecondary.copy(alpha = 0.5f)
+                    if (project.ImageUrl.isNotEmpty()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(project.ImageUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = project.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    when (project.category) {
+                                        "Technology" -> PrimaryBlue.copy(alpha = 0.2f)
+                                        "Charity" -> SuccessGreen.copy(alpha = 0.2f)
+                                        "Education" -> WarningOrange.copy(alpha = 0.2f)
+                                        "Medical" -> ErrorRed.copy(alpha = 0.2f)
+                                        "Games" -> InfoBlue.copy(alpha = 0.2f)
+                                        else -> TextSecondary.copy(alpha = 0.2f)
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = when (project.category) {
+                                    "Technology" -> Icons.Default.Computer
+                                    "Charity" -> Icons.Default.Favorite
+                                    "Education" -> Icons.Default.School
+                                    "Medical" -> Icons.Default.LocalHospital
+                                    "Games" -> Icons.Default.SportsEsports
+                                    else -> Icons.Default.Image
+                                },
+                                contentDescription = project.category,
+                                modifier = Modifier.size(80.dp),
+                                tint = when (project.category) {
+                                    "Technology" -> PrimaryBlue.copy(alpha = 0.5f)
+                                    "Charity" -> SuccessGreen.copy(alpha = 0.5f)
+                                    "Education" -> WarningOrange.copy(alpha = 0.5f)
+                                    "Medical" -> ErrorRed.copy(alpha = 0.5f)
+                                    "Games" -> InfoBlue.copy(alpha = 0.5f)
+                                    else -> TextSecondary.copy(alpha = 0.5f)
+                                }
+                            )
                         }
-                    )
+                    }
                 }
 
                 Column(

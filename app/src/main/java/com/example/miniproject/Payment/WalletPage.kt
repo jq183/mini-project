@@ -175,7 +175,7 @@ fun WalletPage(
             } else {
                 // Button for Pay Now (Functionless for now)
                 Button(
-                    onClick = { /* Functionless */ },
+                    onClick = { navController.navigate("PaymentSuccess/$paymentAmount/WALLET") },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD3E6F5)),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth().height(50.dp)
