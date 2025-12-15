@@ -30,6 +30,12 @@ import com.example.miniproject.ui.theme.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.example.miniproject.UserScreen.PageControl
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +52,10 @@ fun AdminReportsPage(navController: NavController) {
     var selectedReport by remember { mutableStateOf<Report?>(null) }
     var showDetailDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var currentPage by remember { mutableStateOf(1) }
+    val itemsPerPage = 10
+    var isBottomBarVisible by remember { mutableStateOf(true) }
+    val listState = rememberLazyListState()
 
     var tempCategory by remember { mutableStateOf(selectedCategory) }
     var tempSort by remember { mutableStateOf(selectedSort) }
@@ -71,7 +81,7 @@ fun AdminReportsPage(navController: NavController) {
                 result.fold(
                     onSuccess = { fetchedReports ->
                         reports = fetchedReports
-                        groupedReports = reportRepository.groupReportsByProject(fetchedReports)
+                        groupedReports = reportRepository.groupReportsByProjectWithCategory(fetchedReports)
                         isLoading = false
                     },
                     onFailure = { exception ->
@@ -84,6 +94,28 @@ fun AdminReportsPage(navController: NavController) {
                 isLoading = false
             }
         }
+    }
+    LaunchedEffect(listState) {
+        var previousIndex = listState.firstVisibleItemIndex
+        var previousScrollOffset = listState.firstVisibleItemScrollOffset
+
+        snapshotFlow {
+            listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+        }.collect { (currentIndex, currentScrollOffset) ->
+            isBottomBarVisible = when {
+                currentIndex < previousIndex -> true
+                currentIndex > previousIndex -> false
+                currentScrollOffset < previousScrollOffset -> true
+                currentScrollOffset > previousScrollOffset -> false
+                else -> isBottomBarVisible
+            }
+
+            previousIndex = currentIndex
+            previousScrollOffset = currentScrollOffset
+        }
+    }
+    LaunchedEffect(selectedStatusFilter, selectedCategory, selectedSort) {
+        currentPage = 1
     }
 
     val filteredAndSortedReports = remember(selectedStatusFilter, selectedCategory, selectedSort, groupedReports) {
@@ -100,9 +132,10 @@ fun AdminReportsPage(navController: NavController) {
             }
         }
 
+
         if (selectedCategory != "All") {
             filtered = filtered.filter { grouped ->
-                true
+                grouped.projectCategory.equals(selectedCategory, ignoreCase = true)
             }
         }
 
@@ -111,6 +144,16 @@ fun AdminReportsPage(navController: NavController) {
             "Oldest" -> filtered.sortedBy { it.latestReport.reportedAt?.seconds ?: 0 }
             "Most Reports" -> filtered.sortedByDescending { it.totalReports }
             else -> filtered
+        }
+    }
+    val totalPages = (filteredAndSortedReports.size + itemsPerPage - 1) / itemsPerPage
+    val paginatedReports = remember(filteredAndSortedReports, currentPage) {
+        val startIndex = (currentPage - 1) * itemsPerPage
+        val endIndex = minOf(startIndex + itemsPerPage, filteredAndSortedReports.size)
+        if (startIndex < filteredAndSortedReports.size) {
+            filteredAndSortedReports.subList(startIndex, endIndex)
+        } else {
+            emptyList()
         }
     }
 
@@ -149,7 +192,7 @@ fun AdminReportsPage(navController: NavController) {
                                 result.fold(
                                     onSuccess = { fetchedReports ->
                                         reports = fetchedReports
-                                        groupedReports = reportRepository.groupReportsByProject(fetchedReports)
+                                        groupedReports = reportRepository.groupReportsByProjectWithCategory(fetchedReports)
                                     },
                                     onFailure = { }
                                 )
@@ -170,10 +213,22 @@ fun AdminReportsPage(navController: NavController) {
             )
         },
         bottomBar = {
-            AdminBottomNavigationBar(
-                navController = navController,
-                currentRoute = currentRoute
-            )
+            AnimatedVisibility(
+                visible = isBottomBarVisible,
+                enter = expandVertically(
+                    animationSpec = tween(200),
+                    expandFrom = Alignment.Bottom
+                ),
+                exit = shrinkVertically(
+                    animationSpec = tween(200),
+                    shrinkTowards = Alignment.Bottom
+                )
+            ) {
+                AdminBottomNavigationBar(
+                    navController = navController,
+                    currentRoute = currentRoute
+                )
+            }
         }
     ) { paddingValues ->
         Column(
@@ -223,6 +278,7 @@ fun AdminReportsPage(navController: NavController) {
                                 color = if (selectedStatusFilter == filter) PrimaryBlue else TextSecondary
                             )
                         }
+
                     }
                 }
             }
@@ -287,19 +343,34 @@ fun AdminReportsPage(navController: NavController) {
                 }
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(filteredAndSortedReports) { groupedReport ->
+                    items(paginatedReports) { groupedReport ->
                         GroupedReportCard(
                             groupedReport = groupedReport,
                             onClick = {
-                                selectedGroupedReport = groupedReport
-                                showReportsDialog = true
+                                navController.navigate("adminReportDetail/${groupedReport.projectId}")
                             },
                             navController = navController
                         )
+                    }
+
+                    item {
+                        if (totalPages > 1) {
+                            PageControl(
+                                currentPage = currentPage,
+                                totalPages = totalPages,
+                                onPageChange = { newPage ->
+                                    currentPage = newPage
+                                    scope.launch {
+                                        listState.animateScrollToItem(0)
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -482,152 +553,6 @@ fun AdminReportsPage(navController: NavController) {
                 }
             }
         }
-    }
-
-    // All Reports Dialog for a Project
-    if (showReportsDialog && selectedGroupedReport != null) {
-        AlertDialog(
-            onDismissRequest = { showReportsDialog = false },
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.8f),
-            title = {
-                Column {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "All Reports",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        )
-                        Surface(
-                            shape = CircleShape,
-                            color = ErrorRed.copy(alpha = 0.1f)
-                        ) {
-                            Text(
-                                text = "${selectedGroupedReport!!.totalReports}",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = ErrorRed,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = selectedGroupedReport!!.projectTitle,
-                        fontSize = 14.sp,
-                        color = TextSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            },
-            text = {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(selectedGroupedReport!!.reports) { report ->
-                        IndividualReportItem(
-                            report = report,
-                            onClick = {
-                                selectedReport = report
-                                showDetailDialog = true
-                            }
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            navController.navigate("adminProjectDetail/${selectedGroupedReport!!.projectId}")
-                            showReportsDialog = false
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Visibility,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("View Project")
-                    }
-
-                    TextButton(onClick = { showReportsDialog = false }) {
-                        Text("Close")
-                    }
-                }
-            }
-        )
-    }
-
-    // Individual Report Detail Dialog
-    if (showDetailDialog && selectedReport != null) {
-        AlertDialog(
-            onDismissRequest = { showDetailDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Report,
-                        contentDescription = "Report",
-                        tint = ErrorRed,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Report Details", fontWeight = FontWeight.Bold)
-                }
-            },
-            text = {
-                Column {
-                    ReportDetailRow("Project", selectedReport!!.projectTitle)
-                    ReportDetailRow("Category", selectedReport!!.reportCategory)
-                    ReportDetailRow("Reported By", selectedReport!!.reportedBy)
-                    ReportDetailRow("Status", selectedReport!!.status.uppercase())
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        "Description:",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        selectedReport!!.description,
-                        fontSize = 13.sp,
-                        color = TextSecondary
-                    )
-
-                    if (selectedReport!!.adminNotes.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            "Admin Notes:",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            selectedReport!!.adminNotes,
-                            fontSize = 13.sp,
-                            color = TextSecondary
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showDetailDialog = false }) {
-                    Text("Close")
-                }
-            }
-        )
     }
 }
 
@@ -821,101 +746,3 @@ fun GroupedReportCard(
     }
 }
 
-@Composable
-fun IndividualReportItem(
-    report: Report,
-    onClick: () -> Unit
-) {
-    val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
-    val reportDate = report.reportedAt?.toDate()?.let { dateFormat.format(it) } ?: "Unknown"
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceGray),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = when (report.reportCategory) {
-                    "scam" -> ErrorRed.copy(alpha = 0.1f)
-                    "inappropriate_content" -> WarningOrange.copy(alpha = 0.1f)
-                    else -> TextSecondary.copy(alpha = 0.1f)
-                },
-                modifier = Modifier.size(40.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.Report,
-                        contentDescription = null,
-                        tint = when (report.reportCategory) {
-                            "scam" -> ErrorRed
-                            "inappropriate_content" -> WarningOrange
-                            else -> TextSecondary
-                        },
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = report.reportCategory.replace("_", " ").capitalize(),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
-                )
-                Text(
-                    text = "by ${report.reportedBy}",
-                    fontSize = 12.sp,
-                    color = TextSecondary
-                )
-                Text(
-                    text = reportDate,
-                    fontSize = 11.sp,
-                    color = TextLight
-                )
-            }
-
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = "View details",
-                tint = TextSecondary,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
-
-@Composable
-fun ReportDetailRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = "$label:",
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = TextSecondary
-        )
-        Text(
-            text = value,
-            fontSize = 13.sp,
-            color = TextPrimary,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}

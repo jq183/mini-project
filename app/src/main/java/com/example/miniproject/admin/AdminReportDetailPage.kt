@@ -55,6 +55,7 @@ fun AdminReportDetailPage(
     val projectRepository = remember { ProjectRepository() }
     val adminRepository = remember { AdminRepository() }
     var currentAdmin by remember { mutableStateOf<Admin?>(null) }
+    var showVerificationWarningDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(projectId) {
         scope.launch {
@@ -63,42 +64,46 @@ fun AdminReportDetailPage(
             currentAdmin = adminRepository.getCurrentAdmin()
 
             try {
-                // Load reports
+                // Load reports first
                 val result = reportRepository.getReportsForProject(projectId)
 
                 result.fold(
                     onSuccess = { fetchedReports ->
                         if (fetchedReports.isNotEmpty()) {
-                            val categoryBreakdown = fetchedReports
-                                .groupBy { it.reportCategory }
-                                .mapValues { it.value.size }
-
-                            groupedReport = GroupedReport(
+                            // Load project data to get category
+                            projectRepository.getProjectById(
                                 projectId = projectId,
-                                projectTitle = fetchedReports.first().projectTitle,
-                                reports = fetchedReports.sortedByDescending { it.reportedAt?.seconds ?: 0 },
-                                totalReports = fetchedReports.size,
-                                latestReport = fetchedReports.maxByOrNull { it.reportedAt?.seconds ?: 0 }!!,
-                                categoryBreakdown = categoryBreakdown
+                                onSuccess = { project ->
+                                    projectData = project
+
+                                    // Now create grouped report with project category
+                                    val categoryBreakdown = fetchedReports
+                                        .groupBy { it.reportCategory }
+                                        .mapValues { it.value.size }
+
+                                    groupedReport = GroupedReport(
+                                        projectId = projectId,
+                                        projectTitle = fetchedReports.first().projectTitle,
+                                        reports = fetchedReports.sortedByDescending { it.reportedAt?.seconds ?: 0 },
+                                        totalReports = fetchedReports.size,
+                                        latestReport = fetchedReports.maxByOrNull { it.reportedAt?.seconds ?: 0 }!!,
+                                        categoryBreakdown = categoryBreakdown,
+                                        projectCategory = project.category, // Use project category here
+                                    )
+                                    isLoading = false
+                                },
+                                onError = { exception ->
+                                    errorMessage = exception.message ?: "Failed to load project data"
+                                    isLoading = false
+                                }
                             )
                         } else {
                             errorMessage = "No reports found for this project"
+                            isLoading = false
                         }
                     },
                     onFailure = { exception ->
                         errorMessage = exception.message ?: "Failed to load reports"
-                    }
-                )
-
-                // Load project data from Firebase
-                projectRepository.getProjectById(
-                    projectId = projectId,
-                    onSuccess = { project ->
-                        projectData = project
-                        isLoading = false
-                    },
-                    onError = { exception ->
-                        errorMessage = exception.message ?: "Failed to load project data"
                         isLoading = false
                     }
                 )
@@ -545,86 +550,250 @@ fun AdminReportDetailPage(
 
     // Confirmation Dialog
     if (showConfirmDialog && selectedAction != null) {
-        ActionConfirmationDialog(
-            action = selectedAction!!,
-            groupedReport = groupedReport,
-            onDismiss = { showConfirmDialog = false },
-            onConfirm = {
-                scope.launch {
-                    isProcessing = true
+        // Check if trying to resolve a verified project
+        if (selectedAction == "resolve" && projectData?.isOfficial == true) {
+            // Show verification warning dialog instead
+            AlertDialog(
+                onDismissRequest = {
+                    showConfirmDialog = false
+                    selectedAction = null
+                },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = WarningOrange,
+                        modifier = Modifier.size(56.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        "Warning: Verified Project",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            "This project is currently VERIFIED. Resolving reports will flag and suspend this verified project.",
+                            fontSize = 15.sp,
+                            color = TextPrimary
+                        )
 
-                    val adminId = currentAdmin?.adminId
-                    if (adminId == null) {
-                        errorMessage = "Admin information not found"
-                        isProcessing = false
-                        return@launch
-                    }
-
-                    when (selectedAction) {
-                        "resolve" -> {
-                            val reportResult = reportRepository.updateAllReportsForProject(
-                                projectId = projectId,
-                                status = "resolved",
-                                adminNotes = "Admin has reviewed and resolved the issue."
-                            )
-
-                            reportResult.fold(
-                                onSuccess = {
-                                    projectRepository.suspendProject(
-                                        projectId = projectId,
-                                        adminId = adminId,
-                                        reportCount = groupedReport?.totalReports ?: 0,
-                                        onSuccess = {
-                                            isProcessing = false
-                                            showConfirmDialog = false
-                                            navController.navigateUp()
-                                        },
-                                        onError = { exception ->
-                                            isProcessing = false
-                                            errorMessage = exception.message ?: "Failed to suspend project"
-                                        }
-                                    )
-                                },
-                                onFailure = { exception ->
-                                    isProcessing = false
-                                    errorMessage = exception.message ?: "Failed to update reports"
-                                }
-                            )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = WarningOrange.copy(alpha = 0.1f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = WarningOrange,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "The project will lose its verified status and be flagged for users",
+                                    fontSize = 13.sp,
+                                    color = WarningOrange,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
-                        "dismiss" -> {
-                            val reportResult = reportRepository.updateAllReportsForProject(
-                                projectId = projectId,
-                                status = "dismissed",
-                                adminNotes = "Reports dismissed after review."
-                            )
 
-                            reportResult.fold(
-                                onSuccess = {
-                                    projectRepository.dismissReport(
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Project: ${groupedReport?.projectTitle}",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            "Reports to resolve: ${groupedReport?.totalReports}",
+                            fontSize = 14.sp,
+                            color = TextSecondary
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Are you sure you want to flag this verified project?",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ErrorRed
+                        )
+                    }
+                },
+                confirmButton = {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                showConfirmDialog = false
+                                selectedAction = null
+                            }
+                        ) {
+                            Text("Cancel", color = TextSecondary)
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    isProcessing = true
+                                    showConfirmDialog = false
+
+                                    val adminId = currentAdmin?.adminId
+                                    if (adminId == null) {
+                                        errorMessage = "Admin information not found"
+                                        isProcessing = false
+                                        return@launch
+                                    }
+
+                                    val reportResult = reportRepository.updateAllReportsForProject(
                                         projectId = projectId,
-                                        adminId = adminId,
-                                        reportCount = groupedReport?.totalReports ?: 0,
+                                        status = "resolved",
+                                        adminNotes = "Admin has reviewed and resolved the issue."
+                                    )
+
+                                    reportResult.fold(
                                         onSuccess = {
-                                            isProcessing = false
-                                            showConfirmDialog = false
-                                            navController.navigateUp()
+                                            projectRepository.suspendProject(
+                                                projectId = projectId,
+                                                adminId = adminId,
+                                                reportCount = groupedReport?.totalReports ?: 0,
+                                                onSuccess = {
+                                                    isProcessing = false
+                                                    navController.navigateUp()
+                                                },
+                                                onError = { exception ->
+                                                    isProcessing = false
+                                                    errorMessage = exception.message
+                                                        ?: "Failed to suspend project"
+                                                }
+                                            )
                                         },
-                                        onError = { exception ->
+                                        onFailure = { exception ->
                                             isProcessing = false
-                                            errorMessage = exception.message ?: "Failed to dismiss reports"
+                                            errorMessage = exception.message
+                                                ?: "Failed to update reports"
                                         }
                                     )
-                                },
-                                onFailure = { exception ->
-                                    isProcessing = false
-                                    errorMessage = exception.message ?: "Failed to update reports"
                                 }
-                            )
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ErrorRed
+                            ),
+                            enabled = !isProcessing
+                        ) {
+                            if (isProcessing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    color = BackgroundWhite,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text("Yes, Flag This Project", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
-            }
-        )
+            )
+        } else {
+            // Original confirmation dialog for other actions
+            ActionConfirmationDialog(
+                action = selectedAction!!,
+                groupedReport = groupedReport,
+                onDismiss = {
+                    showConfirmDialog = false
+                    selectedAction = null
+                },
+                onConfirm = {
+                    scope.launch {
+                        isProcessing = true
+
+                        val adminId = currentAdmin?.adminId
+                        if (adminId == null) {
+                            errorMessage = "Admin information not found"
+                            isProcessing = false
+                            return@launch
+                        }
+
+                        when (selectedAction) {
+                            "resolve" -> {
+                                val reportResult = reportRepository.updateAllReportsForProject(
+                                    projectId = projectId,
+                                    status = "resolved",
+                                    adminNotes = "Admin has reviewed and resolved the issue."
+                                )
+
+                                reportResult.fold(
+                                    onSuccess = {
+                                        projectRepository.suspendProject(
+                                            projectId = projectId,
+                                            adminId = adminId,
+                                            reportCount = groupedReport?.totalReports ?: 0,
+                                            onSuccess = {
+                                                isProcessing = false
+                                                showConfirmDialog = false
+                                                navController.navigateUp()
+                                            },
+                                            onError = { exception ->
+                                                isProcessing = false
+                                                errorMessage = exception.message ?: "Failed to suspend project"
+                                            }
+                                        )
+                                    },
+                                    onFailure = { exception ->
+                                        isProcessing = false
+                                        errorMessage = exception.message ?: "Failed to update reports"
+                                    }
+                                )
+                            }
+                            "dismiss" -> {
+                                val reportResult = reportRepository.updateAllReportsForProject(
+                                    projectId = projectId,
+                                    status = "dismissed",
+                                    adminNotes = "Reports dismissed after review."
+                                )
+
+                                reportResult.fold(
+                                    onSuccess = {
+                                        projectRepository.dismissReport(
+                                            projectId = projectId,
+                                            adminId = adminId,
+                                            reportCount = groupedReport?.totalReports ?: 0,
+                                            onSuccess = {
+                                                isProcessing = false
+                                                showConfirmDialog = false
+                                                navController.navigateUp()
+                                            },
+                                            onError = { exception ->
+                                                isProcessing = false
+                                                errorMessage = exception.message ?: "Failed to dismiss reports"
+                                            }
+                                        )
+                                    },
+                                    onFailure = { exception ->
+                                        isProcessing = false
+                                        errorMessage = exception.message ?: "Failed to update reports"
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            )
+        }
     }
 }
 

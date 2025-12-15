@@ -48,6 +48,15 @@ fun AdminDashboardPage(navController: NavController) {
     var isLoading by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var adminProfile by remember { mutableStateOf(AdminProfile()) }
+    var showChangePasswordDialog by remember { mutableStateOf(false) }
+    var oldPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var passwordError by remember { mutableStateOf("") }
+    var isChangingPassword by remember { mutableStateOf(false) }
+    var showOldPassword by remember { mutableStateOf(false) }
+    var showNewPassword by remember { mutableStateOf(false) }
+    var showConfirmPassword by remember { mutableStateOf(false) }
 
     val currentRoute = navController.currentBackStackEntry?.destination?.route
     val repository = remember { AdminRepository() }
@@ -82,9 +91,10 @@ fun AdminDashboardPage(navController: NavController) {
                     it.getBoolean("isWarning") == true
                 }.size
 
-                // Calculate total funding
-                val totalFunding = allProjects.sumOf {
-                    it.getDouble("Current_Amount") ?: 0.0
+                // Calculate total funding from donations collection
+                val donationsSnapshot = db.collection("donations").get().await()
+                val totalFunding = donationsSnapshot.documents.sumOf {
+                    it.getDouble("amount") ?: 0.0
                 }
 
                 // Fetch reports data
@@ -221,50 +231,70 @@ fun AdminDashboardPage(navController: NavController) {
                             Spacer(modifier = Modifier.width(16.dp))
 
                             Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = adminProfile.name,
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = TextPrimary
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = adminProfile.name,
+                                            fontSize = 22.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimary
+                                        )
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Email,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp),
+                                                tint = TextSecondary
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = adminProfile.email,
+                                                fontSize = 13.sp,
+                                                color = TextSecondary
+                                            )
+                                        }
+                                    }
+
                                     Surface(
-                                        shape = RoundedCornerShape(6.dp),
+                                        shape = RoundedCornerShape(8.dp),
                                         color = PrimaryBlue.copy(alpha = 0.15f)
                                     ) {
                                         Text(
                                             "ADMIN",
-                                            fontSize = 10.sp,
+                                            fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = PrimaryBlue,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                         )
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Change Password Button
+                                OutlinedButton(
+                                    onClick = { showChangePasswordDialog = true },  // Changed this line
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = PrimaryBlue
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(1.5.dp, PrimaryBlue)
+                                ) {
                                     Icon(
-                                        imageVector = Icons.Default.Email,
+                                        imageVector = Icons.Default.Lock,
                                         contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                        tint = TextSecondary
+                                        modifier = Modifier.size(18.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = adminProfile.email,
-                                        fontSize = 13.sp,
-                                        color = TextSecondary
-                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Change Password", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                                 }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-
-
-
 
                             }
                         }
@@ -282,12 +312,37 @@ fun AdminDashboardPage(navController: NavController) {
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Column(modifier = Modifier.padding(20.dp)) {
-                            Text(
-                                "Quick Overview",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Quick Overview",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+
+                                TextButton(
+                                    onClick = { navController.navigate("adminRanking") },
+                                    colors = ButtonDefaults.textButtonColors(
+                                        contentColor = PrimaryBlue
+                                    )
+                                ) {
+                                    Text(
+                                        "View All",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowForward,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
                             Spacer(modifier = Modifier.height(16.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -530,7 +585,7 @@ fun AdminDashboardPage(navController: NavController) {
                 Button(
                     onClick = {
                         repository.signOut()
-                        navController.navigate("adminLogin") {
+                        navController.navigate("login") {
                             popUpTo(0) { inclusive = true }
                         }
                         showLogoutDialog = false
@@ -544,6 +599,219 @@ fun AdminDashboardPage(navController: NavController) {
             },
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showChangePasswordDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!isChangingPassword) {
+                    showChangePasswordDialog = false
+                    oldPassword = ""
+                    newPassword = ""
+                    confirmPassword = ""
+                    passwordError = ""
+                    showOldPassword = false
+                    showNewPassword = false
+                    showConfirmPassword = false
+                }
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = PrimaryBlue,
+                    modifier = Modifier.size(48.dp)
+                )
+            },
+            title = {
+                Text(
+                    "Change Password",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Old Password
+                    OutlinedTextField(
+                        value = oldPassword,
+                        onValueChange = {
+                            oldPassword = it
+                            passwordError = ""
+                        },
+                        label = { Text("Current Password") },
+                        visualTransformation = if (showOldPassword)
+                            androidx.compose.ui.text.input.VisualTransformation.None
+                        else
+                            androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showOldPassword = !showOldPassword }) {
+                                Icon(
+                                    imageVector = if (showOldPassword) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = if (showOldPassword) "Hide password" else "Show password"
+                                )
+                            }
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isChangingPassword
+                    )
+
+                    // New Password
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = {
+                            newPassword = it
+                            passwordError = ""
+                        },
+                        label = { Text("New Password") },
+                        visualTransformation = if (showNewPassword)
+                            androidx.compose.ui.text.input.VisualTransformation.None
+                        else
+                            androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showNewPassword = !showNewPassword }) {
+                                Icon(
+                                    imageVector = if (showNewPassword) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = if (showNewPassword) "Hide password" else "Show password"
+                                )
+                            }
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isChangingPassword,
+                        supportingText = {
+                            Text("At least 6 characters", fontSize = 11.sp)
+                        }
+                    )
+
+                    // Confirm Password
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = {
+                            confirmPassword = it
+                            passwordError = ""
+                        },
+                        label = { Text("Confirm New Password") },
+                        visualTransformation = if (showConfirmPassword)
+                            androidx.compose.ui.text.input.VisualTransformation.None
+                        else
+                            androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showConfirmPassword = !showConfirmPassword }) {
+                                Icon(
+                                    imageVector = if (showConfirmPassword) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = if (showConfirmPassword) "Hide password" else "Show password"
+                                )
+                            }
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isChangingPassword
+                    )
+
+                    if (passwordError.isNotEmpty()) {
+                        Text(
+                            text = passwordError,
+                            color = ErrorRed,
+                            fontSize = 12.sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        when {
+                            oldPassword.isEmpty() || newPassword.isEmpty() || confirmPassword.isEmpty() -> {
+                                passwordError = "Please fill in all fields"
+                            }
+                            newPassword.length < 6 -> {
+                                passwordError = "New password must be at least 6 characters"
+                            }
+                            newPassword != confirmPassword -> {
+                                passwordError = "New passwords do not match"
+                            }
+                            oldPassword == newPassword -> {
+                                passwordError = "New password must be different from current password"
+                            }
+                            else -> {
+                                isChangingPassword = true
+                                coroutineScope.launch {
+                                    try {
+                                        // Verify old password by re-authenticating
+                                        val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                                        if (user != null && user.email != null) {
+                                            val credential = com.google.firebase.auth.EmailAuthProvider
+                                                .getCredential(user.email!!, oldPassword)
+
+                                            user.reauthenticate(credential).await()
+
+                                            // Change password
+                                            repository.changePassword(newPassword).fold(
+                                                onSuccess = {
+                                                    isChangingPassword = false
+                                                    showChangePasswordDialog = false
+                                                    oldPassword = ""
+                                                    newPassword = ""
+                                                    confirmPassword = ""
+                                                    passwordError = ""
+                                                    showOldPassword = false
+                                                    showNewPassword = false
+                                                    showConfirmPassword = false
+                                                    // Show success message (you can add a Snackbar here)
+                                                },
+                                                onFailure = { e ->
+                                                    isChangingPassword = false
+                                                    passwordError = "Failed to change password: ${e.message}"
+                                                }
+                                            )
+                                        }
+                                    } catch (e: Exception) {
+                                        isChangingPassword = false
+                                        passwordError = "Current password is incorrect"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PrimaryBlue
+                    ),
+                    enabled = !isChangingPassword
+                ) {
+                    if (isChangingPassword) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = BackgroundWhite,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(if (isChangingPassword) "Changing..." else "Change Password")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showChangePasswordDialog = false
+                        oldPassword = ""
+                        newPassword = ""
+                        confirmPassword = ""
+                        passwordError = ""
+                        showOldPassword = false
+                        showNewPassword = false
+                        showConfirmPassword = false
+                    },
+                    enabled = !isChangingPassword
+                ) {
                     Text("Cancel")
                 }
             }
