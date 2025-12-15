@@ -1,5 +1,6 @@
 package com.example.miniproject.UserScreen.ProfileScreen
 
+import android.util.Log
 import android.util.Patterns
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -8,154 +9,110 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Cancel
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.miniproject.ui.theme.*
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChangeEmailPage(navController: NavController) {
     val auth = FirebaseAuth.getInstance()
-    val currentUser = auth.currentUser
     val scope = rememberCoroutineScope()
+    val database = FirebaseDatabase.getInstance().reference
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     var newEmail by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var showPassword by remember { mutableStateOf(false) }
+    var passwordError by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var verificationSent by remember { mutableStateOf(false) }
-    var isCheckingVerification by remember { mutableStateOf(false) }
-    var emailVerified by remember { mutableStateOf(false) }
 
+    val currentUser = auth.currentUser
     val isEmailValid = newEmail.isNotEmpty() && Patterns.EMAIL_ADDRESS.matcher(newEmail).matches()
     val isNewEmailDifferent = newEmail != currentUser?.email
-
-    LaunchedEffect(verificationSent) {
-        if (verificationSent) {
-            while (verificationSent && !emailVerified) {
-                delay(3000)
-                try {
-                    currentUser?.reload()?.await()
-                    if (currentUser?.email == newEmail) {
-                        emailVerified = true
-                    }
-                } catch (e: Exception) {
-                }
-            }
-        }
-    }
+    val hasPasswordProvider = currentUser?.providerData?.any { it.providerId == "password" } ?: false
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "Change Email",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                },
+                title = { Text("Change Email", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary) },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = TextPrimary
-                        )
+                        Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = BackgroundWhite
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundWhite)
             )
         }
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(BackgroundGray)
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
+            modifier = Modifier.fillMaxSize().background(BackgroundGray).padding(paddingValues).verticalScroll(rememberScrollState())
         ) {
-            if (!verificationSent) {
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = PrimaryBlue.copy(alpha = 0.1f)
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            if (!hasPasswordProvider) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
+                    Box(
+                        modifier = Modifier.size(120.dp).background(ErrorRed.copy(0.1f), RoundedCornerShape(60.dp)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Email,
-                                contentDescription = null,
-                                tint = PrimaryBlue,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = " Email Verification Required",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = PrimaryBlue
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "A verification link will be sent to your new email address. Please verify before the change takes effect.",
-                            fontSize = 13.sp,
-                            color = TextSecondary,
-                            lineHeight = 20.sp
-                        )
+                        Icon(Icons.Default.Lock, null, tint = ErrorRed, modifier = Modifier.size(64.dp))
+                    }
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Text("Cannot Change Email", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "You signed in with Google and don't have a password set. To change your email, please set up a password first in Account Settings.",
+                        fontSize = 14.sp,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Button(
+                        onClick = { navController.navigateUp() },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Go Back", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
-
+            } else if (!verificationSent) {
                 Spacer(modifier = Modifier.height(24.dp))
-
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = BackgroundWhite),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    colors = CardDefaults.cardColors(BackgroundWhite),
+                    elevation = CardDefaults.cardElevation(2.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp)
-                    ) {
-                        Text(
-                            text = "Current Email",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextPrimary
-                        )
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text("Current Email", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
                         Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(
                             value = currentUser?.email ?: "",
@@ -169,22 +126,15 @@ fun ChangeEmailPage(navController: NavController) {
                             ),
                             shape = RoundedCornerShape(12.dp)
                         )
-
                         Spacer(modifier = Modifier.height(20.dp))
-
-                        Text(
-                            text = "New Email",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextPrimary
-                        )
+                        Text("New Email", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
                         Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(
                             value = newEmail,
                             onValueChange = { newEmail = it.trim() },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                            placeholder = { Text("Enter new email address") },
+                            placeholder = { Text("Enter new email") },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = PrimaryBlue,
                                 unfocusedBorderColor = BorderGray,
@@ -194,31 +144,58 @@ fun ChangeEmailPage(navController: NavController) {
                             shape = RoundedCornerShape(12.dp),
                             isError = newEmail.isNotEmpty() && (!isEmailValid || !isNewEmailDifferent)
                         )
-
                         if (newEmail.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = if (isEmailValid && isNewEmailDifferent)
-                                        Icons.Default.CheckCircle else Icons.Default.Cancel,
-                                    contentDescription = null,
-                                    tint = if (isEmailValid && isNewEmailDifferent)
-                                        SuccessGreen else ErrorRed,
+                                    if (isEmailValid && isNewEmailDifferent) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                                    null,
+                                    tint = if (isEmailValid && isNewEmailDifferent) SuccessGreen else ErrorRed,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = when {
-                                        !isEmailValid -> "Invalid email format"
-                                        !isNewEmailDifferent -> "New email must be different"
-                                        else -> "Valid email"
+                                    when {
+                                        !isEmailValid -> "Invalid email"
+                                        !isNewEmailDifferent -> "Must be different"
+                                        else -> "Valid"
                                     },
                                     fontSize = 13.sp,
-                                    color = if (isEmailValid && isNewEmailDifferent)
-                                        SuccessGreen else ErrorRed
+                                    color = if (isEmailValid && isNewEmailDifferent) SuccessGreen else ErrorRed
                                 )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Text("Current Password", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it; passwordError = "" },
+                            modifier = Modifier.fillMaxWidth(),
+                            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            placeholder = { Text("Enter password") },
+                            trailingIcon = {
+                                IconButton(onClick = { showPassword = !showPassword }) {
+                                    Icon(if (showPassword) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, tint = TextSecondary)
+                                }
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = PrimaryBlue,
+                                unfocusedBorderColor = BorderGray,
+                                focusedContainerColor = BackgroundWhite,
+                                unfocusedContainerColor = BackgroundWhite
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            isError = passwordError.isNotEmpty()
+                        )
+                        if (passwordError.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Cancel, null, tint = ErrorRed, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(passwordError, fontSize = 13.sp, color = ErrorRed)
                             }
                         }
                     }
@@ -230,266 +207,171 @@ fun ChangeEmailPage(navController: NavController) {
                     onClick = {
                         scope.launch {
                             when {
-                                newEmail.isEmpty() -> {
-                                    snackbarHostState.showSnackbar("Please enter a new email")
-                                }
-                                !isEmailValid -> {
-                                    snackbarHostState.showSnackbar("Please enter a valid email")
-                                }
-                                !isNewEmailDifferent -> {
-                                    snackbarHostState.showSnackbar("New email must be different from current email")
-                                }
+                                newEmail.isEmpty() -> snackbarHostState.showSnackbar("Enter new email")
+                                !isEmailValid -> snackbarHostState.showSnackbar("Invalid email")
+                                !isNewEmailDifferent -> snackbarHostState.showSnackbar("Email must be different")
+                                password.isEmpty() -> passwordError = "Password required"
                                 else -> {
                                     isLoading = true
                                     try {
+                                        val cred = EmailAuthProvider.getCredential(currentUser?.email ?: "", password)
+                                        currentUser?.reauthenticate(cred)?.await()
+                                        Log.d("ChangeEmail", "✅ Re-authenticated")
+
+                                        try {
+                                            currentUser?.unlink("google.com")?.await()
+                                            Log.d("ChangeEmail", "✅ Google provider unlinked")
+                                        } catch (ue: Exception) {
+                                            Log.e("ChangeEmail", "Unlink: ${ue.message}")
+                                        }
+
                                         currentUser?.verifyBeforeUpdateEmail(newEmail)?.await()
+                                        Log.d("ChangeEmail", "✅ Verification sent")
+
                                         isLoading = false
                                         verificationSent = true
                                     } catch (e: Exception) {
                                         isLoading = false
+                                        Log.e("ChangeEmail", "Error: ${e.message}")
                                         when {
-                                            e.message?.contains("email-already-in-use") == true -> {
-                                                snackbarHostState.showSnackbar("This email is already in use")
-                                            }
-                                            e.message?.contains("requires-recent-login") == true -> {
-                                                snackbarHostState.showSnackbar("Please sign in again to change your email")
-                                            }
-                                            e.message?.contains("network") == true -> {
-                                                snackbarHostState.showSnackbar("Network error. Please check your connection")
-                                            }
-                                            else -> {
-                                                snackbarHostState.showSnackbar("Error: ${e.message}")
-                                            }
+                                            e.message?.contains("password is invalid") == true -> passwordError = "Incorrect password"
+                                            e.message?.contains("email-already-in-use") == true -> snackbarHostState.showSnackbar("Email already in use")
+                                            else -> snackbarHostState.showSnackbar("Error: ${e.message}")
                                         }
                                     }
                                 }
                             }
                         }
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .height(56.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(56.dp),
                     enabled = !isLoading && isEmailValid && isNewEmailDifferent,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = PrimaryBlue,
-                        disabledContainerColor = PrimaryBlue.copy(alpha = 0.3f)
-                    ),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue, disabledContainerColor = PrimaryBlue.copy(0.3f)),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = BackgroundWhite,
-                            strokeWidth = 2.dp
-                        )
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = BackgroundWhite, strokeWidth = 2.dp)
                     } else {
-                        Text(
-                            text = "Send Verification Link",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Icon(Icons.Default.Send, null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Send Verification Email", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             } else {
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
+                    modifier = Modifier.fillMaxSize().padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     Box(
-                        modifier = Modifier
-                            .size(120.dp)
-                            .background(
-                                if (emailVerified) SuccessGreen.copy(alpha = 0.1f)
-                                else PrimaryBlue.copy(alpha = 0.1f),
-                                RoundedCornerShape(60.dp)
-                            ),
+                        modifier = Modifier.size(120.dp).background(PrimaryBlue.copy(0.1f), RoundedCornerShape(60.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (emailVerified) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = SuccessGreen,
-                                modifier = Modifier.size(64.dp)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Email,
-                                contentDescription = null,
-                                tint = PrimaryBlue,
-                                modifier = Modifier.size(64.dp)
-                            )
+                        Icon(Icons.Default.Email, null, tint = PrimaryBlue, modifier = Modifier.size(64.dp))
+                    }
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Text("Check Your Email", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("We've sent a verification link to:", fontSize = 14.sp, color = TextSecondary, textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(newEmail, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PrimaryBlue, textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(BackgroundWhite)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Row(verticalAlignment = Alignment.Top) {
+                                Text("1️⃣", fontSize = 20.sp)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text("Check your NEW email", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("Open $newEmail inbox", fontSize = 13.sp, color = TextSecondary)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(verticalAlignment = Alignment.Top) {
+                                Text("2️⃣", fontSize = 20.sp)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text("Click the verification link", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("This will update your email", fontSize = 13.sp, color = TextSecondary)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(verticalAlignment = Alignment.Top) {
+                                Text("3️⃣", fontSize = 20.sp)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text("Come back and sign out", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("Tap button below after verifying", fontSize = 13.sp, color = TextSecondary)
+                                }
+                            }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    Text(
-                        text = if (emailVerified) "Email Changed Successfully!" else "Verification Email Sent",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        textAlign = TextAlign.Center
-                    )
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                isLoading = true
+                                try {
+                                    val userId = auth.currentUser?.uid
+                                    if (userId != null) {
+                                        database.child("users").child(userId).child("email").setValue(newEmail).await()
+                                        Log.d("ChangeEmail", "✅ Database updated")
+                                    }
+
+                                    try {
+                                        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                            .requestIdToken("125120901156-ein014qi9a88mafhuj0lfhv20dltds5o.apps.googleusercontent.com")
+                                            .requestEmail()
+                                            .build()
+                                        GoogleSignIn.getClient(context, gso).signOut().await()
+                                        Log.d("ChangeEmail", "✅ Google signed out")
+                                    } catch (ge: Exception) {
+                                        Log.e("ChangeEmail", "Google signout: ${ge.message}")
+                                    }
+
+                                    auth.signOut()
+                                    Log.d("ChangeEmail", "✅ Firebase signed out")
+
+                                    delay(300)
+                                    navController.navigate("login") {
+                                        popUpTo(0) { inclusive = true }
+                                    }
+                                } catch (e: Exception) {
+                                    isLoading = false
+                                    Log.e("ChangeEmail", "Error: ${e.message}")
+                                    snackbarHostState.showSnackbar("Error: ${e.message}")
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        enabled = !isLoading,
+                        colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = BackgroundWhite, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("I've Verified - Sign Out", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    if (!emailVerified) {
-                        Text(
-                            text = "We've sent a verification link to:",
-                            fontSize = 14.sp,
-                            color = TextSecondary,
-                            textAlign = TextAlign.Center
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = newEmail,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryBlue,
-                            textAlign = TextAlign.Center
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = BackgroundWhite
-                            )
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp)
-                            ) {
-                                Text(
-                                    text = "📧 Check your email",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = TextPrimary
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Click the verification link in the email to complete the change. This page will automatically update when verified.",
-                                    fontSize = 13.sp,
-                                    color = TextSecondary,
-                                    lineHeight = 20.sp
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = PrimaryBlue,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Waiting for verification...",
-                                fontSize = 14.sp,
-                                color = TextSecondary
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(32.dp))
-
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch {
-                                    isCheckingVerification = true
-                                    try {
-                                        currentUser?.reload()?.await()
-                                        if (currentUser?.email == newEmail) {
-                                            emailVerified = true
-                                        } else {
-                                            snackbarHostState.showSnackbar("Email not verified yet")
-                                        }
-                                    } catch (e: Exception) {
-                                        snackbarHostState.showSnackbar("Failed to check: ${e.message}")
-                                    }
-                                    isCheckingVerification = false
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !isCheckingVerification,
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = PrimaryBlue
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            if (isCheckingVerification) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    color = PrimaryBlue,
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Check Verification Status")
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        TextButton(
-                            onClick = {
-                                verificationSent = false
-                            }
-                        ) {
-                            Text(
-                                text = "Cancel",
-                                color = TextSecondary
-                            )
-                        }
-                    } else {
-                        // 验证成功
-                        Text(
-                            text = "Your email has been successfully changed to $newEmail",
-                            fontSize = 14.sp,
-                            color = TextSecondary,
-                            textAlign = TextAlign.Center
-                        )
-
-                        Spacer(modifier = Modifier.height(32.dp))
-
-                        Button(
-                            onClick = {
-                                navController.navigateUp()
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = SuccessGreen
-                            ),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text(
-                                text = "Done",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
+                    TextButton(onClick = { verificationSent = false; password = ""; passwordError = "" }) {
+                        Text("Cancel", color = TextSecondary)
                     }
                 }
             }
-
             Spacer(modifier = Modifier.height(16.dp))
         }
     }

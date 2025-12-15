@@ -26,6 +26,7 @@ import androidx.navigation.NavController
 import com.example.miniproject.ui.theme.*
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -53,12 +54,15 @@ fun ChangePwPage(navController: NavController) {
     var showSuccessDialog by remember { mutableStateOf(false) }
     var currentPasswordError by remember { mutableStateOf(false) }
 
+    val database = FirebaseDatabase.getInstance().reference
+
     val hasMinLength = newPassword.length >= 8
     val hasUpperCase = newPassword.any { it.isUpperCase() }
     val hasLowerCase = newPassword.any { it.isLowerCase() }
     val hasNumber = newPassword.any { it.isDigit() }
     val hasSpecialChar = newPassword.any { !it.isLetterOrDigit() }
     val pwMatch = newPassword.isNotEmpty() && newPassword == confirmPassword
+
 
     val isPwValid = hasMinLength && hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar
 
@@ -342,7 +346,6 @@ fun ChangePwPage(navController: NavController) {
                 onClick = {
                     scope.launch {
                         if (hasPasswordProvider) {
-                            // Change existing password
                             when {
                                 currentPassword.isEmpty() -> {
                                     snackbarHostState.showSnackbar("Please enter your current password")
@@ -398,6 +401,13 @@ fun ChangePwPage(navController: NavController) {
                                     isLoading = true
                                     try {
                                         currentUser?.updatePassword(newPassword)?.await()
+
+                                        val userId = currentUser?.uid
+                                        if (userId != null) {
+                                            database.child("users").child(userId)
+                                                .child("hasPassword").setValue(true).await()
+                                        }
+
                                         isLoading = false
                                         showSuccessDialog = true
                                     } catch (e: Exception) {

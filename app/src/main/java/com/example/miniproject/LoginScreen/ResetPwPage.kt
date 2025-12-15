@@ -32,14 +32,12 @@ fun ResetPwPage(navController: NavController) {
     var emailSent by remember { mutableStateOf(false) }
     var invalidEmail by remember { mutableStateOf("") }
 
-    // 添加倒计时相关状态 ✅
     var countdown by remember { mutableStateOf(0) }
     var canResend by remember { mutableStateOf(true) }
 
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
 
-    // 添加倒计时逻辑 ✅
     LaunchedEffect(countdown) {
         if (countdown > 0) {
             delay(1000)
@@ -159,23 +157,36 @@ fun ResetPwPage(navController: NavController) {
                         }
 
                         isLoading = true
-                        auth.sendPasswordResetEmail(email)
-                            .addOnSuccessListener {
-                                isLoading = false
-                                emailSent = true
-                                countdown = 60  // 开始60秒倒计时 ✅
-                                canResend = false
+                        auth.fetchSignInMethodsForEmail(email)
+                            .addOnSuccessListener { result ->
+                                if (result.signInMethods.isNullOrEmpty()) {
+                                    isLoading = false
+                                    invalidEmail = "No account found with this email"
+                                } else {
+                                    auth.sendPasswordResetEmail(email)
+                                        .addOnSuccessListener {
+                                            isLoading = false
+                                            emailSent = true
+                                            countdown = 60
+                                            canResend = false
+                                        }
+                                        .addOnFailureListener { exception ->
+                                            isLoading = false
+                                            Toast.makeText(
+                                                context,
+                                                "Failed to send reset email: ${exception.message}",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                }
                             }
                             .addOnFailureListener { exception ->
                                 isLoading = false
-                                val errorMessage = when {
-                                    exception.message?.contains("no user record", ignoreCase = true) == true ->
-                                        "No account found with this email"
-                                    exception.message?.contains("badly formatted", ignoreCase = true) == true ->
-                                        "Invalid email format"
-                                    else -> "Failed to send reset email: ${exception.message}"
-                                }
-                                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                                Toast.makeText(
+                                    context,
+                                    "Error checking email: ${exception.message}",
+                                    Toast.LENGTH_LONG
+                                ).show()
                             }
                     },
                     modifier = Modifier
@@ -207,7 +218,6 @@ fun ResetPwPage(navController: NavController) {
                     )
                 }
             } else {
-                // 邮件已发送的界面
                 Text(
                     text = "Check Your Email",
                     fontSize = 24.sp,
@@ -283,23 +293,43 @@ fun ResetPwPage(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 修改重发按钮 ✅
                 TextButton(
                     onClick = {
                         if (canResend) {
                             isLoading = true
-                            auth.sendPasswordResetEmail(email)
-                                .addOnSuccessListener {
-                                    isLoading = false
-                                    countdown = 60
-                                    canResend = false
-                                    Toast.makeText(context, "Email resent successfully!", Toast.LENGTH_SHORT).show()
+                            auth.fetchSignInMethodsForEmail(email)
+                                .addOnSuccessListener { result ->
+                                    if (result.signInMethods.isNullOrEmpty()) {
+                                        isLoading = false
+                                        invalidEmail = "No account found with this email"
+                                        Toast.makeText(
+                                            context,
+                                            "This email is not registered. Please sign up first.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    } else {
+                                        auth.sendPasswordResetEmail(email)
+                                            .addOnSuccessListener {
+                                                isLoading = false
+                                                emailSent = true
+                                                countdown = 60
+                                                canResend = false
+                                            }
+                                            .addOnFailureListener { exception ->
+                                                isLoading = false
+                                                Toast.makeText(
+                                                    context,
+                                                    "Failed to send reset email: ${exception.message}",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            }
+                                    }
                                 }
                                 .addOnFailureListener { exception ->
                                     isLoading = false
                                     Toast.makeText(
                                         context,
-                                        "Failed to resend: ${exception.message}",
+                                        "Error checking email: ${exception.message}",
                                         Toast.LENGTH_LONG
                                     ).show()
                                 }

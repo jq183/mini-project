@@ -107,8 +107,8 @@ fun MainPage(navController: NavController) {
             isBottomBarVisible = when {
                 currentIndex < previousIndex -> true
                 currentIndex > previousIndex -> false
-                currentScrollOffset < previousScrollOffset -> true  // 向上滚
-                currentScrollOffset > previousScrollOffset -> false // 向下滚
+                currentScrollOffset < previousScrollOffset -> true
+                currentScrollOffset > previousScrollOffset -> false
                 else -> isBottomBarVisible
             }
 
@@ -591,7 +591,6 @@ fun ProjectCard(
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
-                    // Title
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
@@ -938,7 +937,7 @@ fun PageControl(
                 ) {
                     Text(
                         text = page.toString(),
-                        color = if (page == currentPage) PrimaryBlue else TextSecondary,  // ✅ 选中的蓝色文字
+                        color = if (page == currentPage) PrimaryBlue else TextSecondary,
                         fontWeight = if (page == currentPage) FontWeight.Bold else FontWeight.Normal,
                         fontSize = if (page == currentPage) 20.sp else 14.sp
                     )

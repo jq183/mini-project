@@ -71,10 +71,13 @@ fun LoginPage(navController: NavController) {
     var displayedText by remember { mutableStateOf("") }
     val fullText = "SparkFund"
 
+    var showGoogleAccountDialog by remember { mutableStateOf(false) }
+    var showMergeDialog by remember { mutableStateOf(false) }
+    var pendingMergeUserId by remember { mutableStateOf("") }
+
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
     val database = FirebaseDatabase.getInstance().reference
-
 
     LaunchedEffect(navSignUp) {
         if (navSignUp) {
@@ -114,20 +117,38 @@ fun LoginPage(navController: NavController) {
 
                             if (authTask.isSuccessful) {
                                 val userId = authTask.result?.user?.uid ?: ""
+                                val userEmail = authTask.result?.user?.email ?: ""
                                 Log.d("GoogleSignIn", "User ID: $userId")
 
-                                database.child("users").child(userId).get()
+                                database.child("users")
+                                    .orderByChild("email")
+                                    .equalTo(userEmail)
+                                    .get()
                                     .addOnSuccessListener { snapshot ->
                                         if (snapshot.exists()) {
-                                            navController.navigate("mainPage")
+                                            val existingUserData = snapshot.children.firstOrNull()?.value as? Map<*, *>
+                                            val existingUserId = existingUserData?.get("userId") as? String
+                                            val hasPassword = existingUserData?.get("hasPassword") as? Boolean ?: false
+                                            val isGoogleAccount = existingUserData?.get("isGoogleAccount") as? Boolean ?: false
+
+                                            if (hasPassword && !isGoogleAccount) {
+                                                pendingMergeUserId = existingUserId ?: ""
+                                                showMergeDialog = true
+                                            } else {
+                                                navController.navigate("mainPage")
+                                            }
                                         } else {
                                             val user = auth.currentUser
                                             val userData = hashMapOf(
                                                 "name" to (user?.displayName ?: "Google User"),
                                                 "email" to (user?.email ?: ""),
                                                 "profileImageUrl" to (user?.photoUrl?.toString() ?: ""),
-                                                "userId" to userId
-
+                                                "userId" to userId,
+                                                "isVerified" to true,
+                                                "userType" to "user",
+                                                "isGoogleAccount" to true,
+                                                "hasPassword" to false,
+                                                "createdAt" to System.currentTimeMillis()
                                             )
 
                                             database.child("users").child(userId).setValue(userData)
@@ -139,13 +160,11 @@ fun LoginPage(navController: NavController) {
                                                     Log.e("GoogleSignIn", "Failed to create user profile", e)
                                                     Toast.makeText(context, "Failed to create profile: ${e.message}", Toast.LENGTH_LONG).show()
                                                 }
-
                                         }
                                     }
                                     .addOnFailureListener { e ->
                                         Log.e("GoogleSignIn", "Database check failed", e)
                                         Toast.makeText(context, "Database error: ${e.message}", Toast.LENGTH_LONG).show()
-                                        navSignUp = true
                                     }
                             } else {
                                 Log.e("GoogleSignIn", "Firebase auth failed", authTask.exception)
@@ -209,7 +228,7 @@ fun LoginPage(navController: NavController) {
                 email = it
                 emailError = ""
                 loginError = ""
-                            },
+            },
             label = { Text("Email") },
             placeholder = { Text("Enter your email") },
             modifier = Modifier
@@ -240,7 +259,7 @@ fun LoginPage(navController: NavController) {
             onValueChange = {
                 password = it
                 pwError = ""
-                            },
+            },
             label = { Text("Password") },
             placeholder = { Text("Enter your password") },
             visualTransformation = if (showPassword) {
@@ -285,8 +304,10 @@ fun LoginPage(navController: NavController) {
         }
 
         TextButton(
-            onClick = { emailReset = email
-                      showForgotPwDialog = true},
+            onClick = {
+                emailReset = email
+                showForgotPwDialog = true
+            },
             modifier = Modifier
                 .align(Alignment.End)
                 .padding(bottom = 4.dp),
@@ -308,7 +329,6 @@ fun LoginPage(navController: NavController) {
             onClick = {
                 emailError = ""
                 pwError = ""
-
                 var hasError = false
 
                 if (email.isEmpty()) {
@@ -319,42 +339,68 @@ fun LoginPage(navController: NavController) {
                     hasError = true
                 }
 
-                if (password.isEmpty()) {
-                    pwError = "Password is required"
-                    hasError = true
-                }
-
                 if (!hasError) {
                     isLoading = true
-                    auth.signInWithEmailAndPassword(email, password)
-                        .addOnCompleteListener { task ->
-                            isLoading = false
-                            if (task.isSuccessful) {
-                                navController.navigate("mainPage")
-                            } else {
-                                val exception = task.exception
-                                Log.e("LoginError", "Exception: ${exception?.javaClass?.simpleName}")
-                                Log.e("LoginError", "Message: ${exception?.message}")
 
-                                when {
-                                    exception?.message?.contains("password", ignoreCase = true) == true -> {
-                                        pwError = "Incorrect password"
+                    database.child("users")
+                        .orderByChild("email")
+                        .equalTo(email)
+                        .get()
+                        .addOnSuccessListener { snapshot ->
+                            if (snapshot.exists()) {
+                                val userData = snapshot.children.firstOrNull()?.value as? Map<*, *>
+                                val userId = userData?.get("userId") as? String
+                                val hasPassword = userData?.get("hasPassword") as? Boolean ?: false
+                                val isGoogleAccount = userData?.get("isGoogleAccount") as? Boolean ?: false
+
+                                if (userId != null) {
+                                    if (password.isEmpty()) {
+                                        if (isGoogleAccount && !hasPassword) {
+                                            isLoading = false
+                                            showGoogleAccountDialog = true
+                                        } else {
+                                            isLoading = false
+                                            pwError = "Password is required"
+                                        }
+                                    } else {
+                                        if (isGoogleAccount && !hasPassword) {
+                                            isLoading = false
+                                            showGoogleAccountDialog = true
+                                        } else {
+                                            auth.signInWithEmailAndPassword(email, password)
+                                                .addOnCompleteListener { task ->
+                                                    isLoading = false
+                                                    if (task.isSuccessful) {
+                                                        navController.navigate("mainPage")
+                                                    } else {
+                                                        val exception = task.exception
+                                                        when {
+                                                            exception?.message?.contains("password", ignoreCase = true) == true -> {
+                                                                pwError = "Incorrect password"
+                                                            }
+                                                            exception?.message?.contains("user", ignoreCase = true) == true -> {
+                                                                emailError = "Account not found"
+                                                            }
+                                                            else -> {
+                                                                pwError = "Invalid email or password"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                        }
                                     }
-                                    exception?.message?.contains("user", ignoreCase = true) == true ||
-                                            exception?.message?.contains("email", ignoreCase = true) == true -> {
-                                        emailError = "Account not found"
-                                    }
-                                    exception?.message?.contains("credential", ignoreCase = true) == true -> {
-                                        pwError = "Invalid email or password"
-                                    }
-                                    exception?.message?.contains("disabled", ignoreCase = true) == true -> {
-                                        emailError = "This account has been disabled"
-                                    }
-                                    else -> {
-                                        pwError = "Invalid email or password"
-                                    }
+                                } else {
+                                    isLoading = false
+                                    emailError = "Account not found"
                                 }
+                            } else {
+                                isLoading = false
+                                emailError = "Account not found"
                             }
+                        }
+                        .addOnFailureListener {
+                            isLoading = false
+                            Toast.makeText(context, "Failed to check account", Toast.LENGTH_SHORT).show()
                         }
                 }
             },
@@ -388,6 +434,132 @@ fun LoginPage(navController: NavController) {
             Spacer(modifier = Modifier.height(12.dp))
         }
 
+        if (showGoogleAccountDialog) {
+            AlertDialog(
+                onDismissRequest = { showGoogleAccountDialog = false },
+                containerColor = BackgroundWhite,
+                title = {
+                    Text(
+                        "Google Account Detected",
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryBlue,
+                        fontSize = 20.sp
+                    )
+                },
+                text = {
+                    Column {
+                        Text(
+                            "This account uses Google Sign-In.",
+                            fontSize = 16.sp,
+                            color = TextPrimary,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Text(
+                            "Please click 'Sign in with Google' button below to login.",
+                            fontSize = 15.sp,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                        Text(
+                            "Note: You can set a password in Profile → Change Password after logging in.",
+                            fontSize = 13.sp,
+                            color = TextSecondary,
+                            fontStyle = FontStyle.Italic
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = { showGoogleAccountDialog = false }
+                    ) {
+                        Text(
+                            "OK",
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryBlue,
+                            fontSize = 16.sp
+                        )
+                    }
+                }
+            )
+        }
+
+        if (showMergeDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showMergeDialog = false
+                    auth.signOut()
+                },
+                containerColor = BackgroundWhite,
+                title = {
+                    Text(
+                        "Merge Accounts",
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryBlue,
+                        fontSize = 20.sp
+                    )
+                },
+                text = {
+                    Column {
+                        Text(
+                            "An account with this email already exists.",
+                            fontSize = 16.sp,
+                            color = TextPrimary,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Text(
+                            "Would you like to link your Google account to this existing account? You'll be able to login with both methods.",
+                            fontSize = 15.sp,
+                            color = TextSecondary
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val updates = hashMapOf<String, Any>(
+                                "isGoogleAccount" to true,
+                                "profileImageUrl" to (auth.currentUser?.photoUrl?.toString() ?: ""),
+                                "hasPassword" to true
+                            )
+
+                            database.child("users").child(pendingMergeUserId)
+                                .updateChildren(updates)
+                                .addOnSuccessListener {
+                                    showMergeDialog = false
+                                    Toast.makeText(context, "Accounts merged successfully!", Toast.LENGTH_SHORT).show()
+                                    navController.navigate("mainPage")
+                                }
+                                .addOnFailureListener {
+                                    showMergeDialog = false
+                                    Toast.makeText(context, "Failed to merge accounts", Toast.LENGTH_SHORT).show()
+                                }
+                        }
+                    ) {
+                        Text(
+                            "Merge",
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryBlue,
+                            fontSize = 16.sp
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showMergeDialog = false
+                            auth.signOut()
+                        }
+                    ) {
+                        Text(
+                            "Cancel",
+                            color = TextSecondary,
+                            fontSize = 16.sp
+                        )
+                    }
+                }
+            )
+        }
+
         OutlinedButton(
             onClick = {
                 val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -397,7 +569,8 @@ fun LoginPage(navController: NavController) {
 
                 val googleSignInClient = GoogleSignIn.getClient(context, gso)
                 googleSignInClient.signOut()
-                googleSignInLauncher.launch(googleSignInClient.signInIntent)            },
+                googleSignInLauncher.launch(googleSignInClient.signInIntent)
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp)
@@ -453,8 +626,7 @@ fun LoginPage(navController: NavController) {
                     navController.navigate("mainPage") {
                         popUpTo(0) { inclusive = true }
                     }
-                          },
-            
+                },
                 colors = ButtonDefaults.textButtonColors(
                     contentColor = PrimaryBlue
                 )
