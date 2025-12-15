@@ -26,6 +26,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.shape.CircleShape
 import kotlinx.coroutines.launch
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
+import androidx.compose.foundation.lazy.LazyRow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,9 +43,11 @@ fun AdminProjectDetail(
     var showSnackbar by remember { mutableStateOf(false) }
     var snackbarMessage by remember { mutableStateOf("") }
     var isProcessing by remember { mutableStateOf(false) }
+    var verifiedByAdminEmail by remember { mutableStateOf<String?>(null) }
 
     val repository = remember { ProjectRepository() }
     val adminRepository = remember { AdminRepository() }
+    val db = remember { FirebaseFirestore.getInstance() }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -59,6 +64,33 @@ fun AdminProjectDetail(
             onSuccess = { proj ->
                 project = proj
                 isLoading = false
+
+                // Fetch certification info if project is verified
+                if (proj.isOfficial) {
+                    scope.launch {
+                        try {
+                            val certSnapshot = db.collection("Certifications")
+                                .whereEqualTo("Project_ID", projectId)
+                                .get()
+                                .await()
+
+                            if (!certSnapshot.isEmpty) {
+                                val adminId = certSnapshot.documents[0].getString("Admin_ID")
+                                if (adminId != null) {
+                                    val adminDoc = db.collection("Admins")
+                                        .document(adminId)
+                                        .get()
+                                        .await()
+                                    verifiedByAdminEmail = adminDoc.getString("Email")
+                                }
+                            }
+                        } catch (e: Exception) {
+                            // Silently fail
+                        }
+                    }
+                } else {
+                    verifiedByAdminEmail = null
+                }
             },
             onError = {
                 isLoading = false
@@ -70,7 +102,7 @@ fun AdminProjectDetail(
         if (showSnackbar) {
             snackbarHostState.showSnackbar(
                 message = snackbarMessage,
-                duration = SnackbarDuration.Short
+                duration = SnackbarDuration.Long
             )
             showSnackbar = false
         }
@@ -101,7 +133,17 @@ fun AdminProjectDetail(
                 )
             )
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = if (data.visuals.message.contains("success", ignoreCase = true))
+                        SuccessGreen else if (data.visuals.message.contains("fail", ignoreCase = true))
+                        ErrorRed else PrimaryBlue,
+                    contentColor = BackgroundWhite
+                )
+            }
+        }
     ) { paddingValues ->
         if (isLoading) {
             Box(
@@ -143,14 +185,17 @@ fun AdminProjectDetail(
                     )
                 }
 
+                @OptIn(ExperimentalLayoutApi::class)
                 item {
-                    Row(
+                    FlowRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(BackgroundWhite)
                             .padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = if (project!!.isOfficial) SuccessGreen.copy(alpha = 0.1f)
@@ -176,6 +221,7 @@ fun AdminProjectDetail(
                                 )
                             }
                         }
+
 
                         if (project!!.isWarning) {
                             Surface(
@@ -203,6 +249,7 @@ fun AdminProjectDetail(
                             }
                         }
 
+
                         if (project!!.status == "suspended") {
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
@@ -228,6 +275,7 @@ fun AdminProjectDetail(
                                 }
                             }
                         }
+
 
                         Surface(
                             shape = RoundedCornerShape(8.dp),
@@ -485,6 +533,42 @@ fun AdminProjectDetail(
                                 "Verification",
                                 if (project!!.isOfficial) "Verified" else "Unverified"
                             )
+
+                            // Show verified by admin email if project is verified
+                            if (project!!.isOfficial && verifiedByAdminEmail != null) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = SuccessGreen.copy(alpha = 0.1f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.AdminPanelSettings,
+                                            contentDescription = null,
+                                            tint = SuccessGreen,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column {
+                                            Text(
+                                                text = "Verified by",
+                                                fontSize = 12.sp,
+                                                color = TextSecondary
+                                            )
+                                            Text(
+                                                text = verifiedByAdminEmail!!,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = SuccessGreen
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -583,7 +667,7 @@ fun AdminProjectDetail(
                         onClick = {
                             scope.launch {
                                 if (currentAdminId == null) {
-                                    snackbarMessage = "Admin ID not found"
+                                    snackbarMessage = "Failed: Admin ID not found"
                                     showSnackbar = true
                                     showManageDialog = false
                                     return@launch
@@ -597,23 +681,25 @@ fun AdminProjectDetail(
                                         projectId = project!!.id,
                                         adminId = currentAdminId!!,
                                         onSuccess = {
-                                            // Reload project data
                                             repository.getProjectById(
                                                 projectId = projectId,
                                                 onSuccess = { proj ->
                                                     project = proj
+                                                    verifiedByAdminEmail = null
                                                     isProcessing = false
-                                                    snackbarMessage = "Project unverified successfully"
+                                                    snackbarMessage = "Success: Project verification removed"
                                                     showSnackbar = true
                                                 },
                                                 onError = {
                                                     isProcessing = false
+                                                    snackbarMessage = "Verification removed, but failed to refresh data"
+                                                    showSnackbar = true
                                                 }
                                             )
                                         },
                                         onError = { e ->
                                             isProcessing = false
-                                            snackbarMessage = "Failed to unverify: ${e.message}"
+                                            snackbarMessage = "Failed to remove verification: ${e.message}"
                                             showSnackbar = true
                                         }
                                     )
@@ -622,23 +708,48 @@ fun AdminProjectDetail(
                                         projectId = project!!.id,
                                         adminId = currentAdminId!!,
                                         onSuccess = {
-
                                             repository.getProjectById(
                                                 projectId = projectId,
                                                 onSuccess = { proj ->
                                                     project = proj
                                                     isProcessing = false
-                                                    snackbarMessage = "Project verified successfully"
+
+                                                    // Fetch new admin email
+                                                    scope.launch {
+                                                        try {
+                                                            val certSnapshot = db.collection("Certifications")
+                                                                .whereEqualTo("Project_ID", projectId)
+                                                                .get()
+                                                                .await()
+
+                                                            if (!certSnapshot.isEmpty) {
+                                                                val adminId = certSnapshot.documents[0].getString("Admin_ID")
+                                                                if (adminId != null) {
+                                                                    val adminDoc = db.collection("Admins")
+                                                                        .document(adminId)
+                                                                        .get()
+                                                                        .await()
+                                                                    verifiedByAdminEmail = adminDoc.getString("Email")
+                                                                }
+                                                            }
+                                                        } catch (e: Exception) {
+                                                            // Silently fail
+                                                        }
+                                                    }
+
+                                                    snackbarMessage = "Success: Project verified successfully"
                                                     showSnackbar = true
                                                 },
                                                 onError = {
                                                     isProcessing = false
+                                                    snackbarMessage = "Project verified, but failed to refresh data"
+                                                    showSnackbar = true
                                                 }
                                             )
                                         },
                                         onError = { e ->
                                             isProcessing = false
-                                            snackbarMessage = "Failed to verify: ${e.message}"
+                                            snackbarMessage = "Failed to verify project: ${e.message}"
                                             showSnackbar = true
                                         }
                                     )
@@ -650,16 +761,16 @@ fun AdminProjectDetail(
                     // Flag/Unflag & Suspend/Reactivate
                     ManagementActionCard(
                         icon = if (project!!.status == "suspended") Icons.Default.CheckCircle else Icons.Default.Warning,
-                        title = if (project!!.status == "suspended") "Reactivate Project" else "Suspend Project",
+                        title = if (project!!.status == "suspended") "Reactivate Project" else "Flag as Warning",
                         description = if (project!!.status == "suspended")
                             "Remove suspension and reactivate project"
                         else
-                            "Flag and suspend this project",
+                            "Add warning badge to alert users",
                         color = if (project!!.status == "suspended") SuccessGreen else WarningOrange,
                         onClick = {
                             scope.launch {
                                 if (currentAdminId == null) {
-                                    snackbarMessage = "Admin ID not found"
+                                    snackbarMessage = "Failed: Admin ID not found"
                                     showSnackbar = true
                                     showManageDialog = false
                                     return@launch
@@ -675,22 +786,22 @@ fun AdminProjectDetail(
                                         adminId = currentAdminId!!,
                                         reportCount = 0,
                                         onSuccess = {
-                                            // Also update status to active
                                             repository.updateProject(
                                                 projectId = project!!.id,
                                                 updates = mapOf("Status" to "active"),
                                                 onSuccess = {
-                                                    // Reload project data
                                                     repository.getProjectById(
                                                         projectId = projectId,
                                                         onSuccess = { proj ->
                                                             project = proj
                                                             isProcessing = false
-                                                            snackbarMessage = "Project reactivated successfully"
+                                                            snackbarMessage = "Success: Project reactivated"
                                                             showSnackbar = true
                                                         },
                                                         onError = {
                                                             isProcessing = false
+                                                            snackbarMessage = "Project reactivated, but failed to refresh data"
+                                                            showSnackbar = true
                                                         }
                                                     )
                                                 },
@@ -703,7 +814,7 @@ fun AdminProjectDetail(
                                         },
                                         onError = { e ->
                                             isProcessing = false
-                                            snackbarMessage = "Failed to reactivate: ${e.message}"
+                                            snackbarMessage = "Failed to reactivate project: ${e.message}"
                                             showSnackbar = true
                                         }
                                     )
@@ -714,23 +825,24 @@ fun AdminProjectDetail(
                                         adminId = currentAdminId!!,
                                         reportCount = 0,
                                         onSuccess = {
-                                            // Reload project data
                                             repository.getProjectById(
                                                 projectId = projectId,
                                                 onSuccess = { proj ->
                                                     project = proj
                                                     isProcessing = false
-                                                    snackbarMessage = "Project suspended successfully"
+                                                    snackbarMessage = "Success: Project suspended"
                                                     showSnackbar = true
                                                 },
                                                 onError = {
                                                     isProcessing = false
+                                                    snackbarMessage = "Project suspended, but failed to refresh data"
+                                                    showSnackbar = true
                                                 }
                                             )
                                         },
                                         onError = { e ->
                                             isProcessing = false
-                                            snackbarMessage = "Failed to suspend: ${e.message}"
+                                            snackbarMessage = "Failed to suspend project: ${e.message}"
                                             showSnackbar = true
                                         }
                                     )
@@ -748,7 +860,7 @@ fun AdminProjectDetail(
                         onClick = {
                             scope.launch {
                                 if (currentAdminId == null) {
-                                    snackbarMessage = "Admin ID not found"
+                                    snackbarMessage = "Failed: Admin ID not found"
                                     showSnackbar = true
                                     showManageDialog = false
                                     return@launch
@@ -763,13 +875,13 @@ fun AdminProjectDetail(
                                     reason = "Deleted by admin",
                                     onSuccess = {
                                         isProcessing = false
-                                        snackbarMessage = "Project deleted successfully"
+                                        snackbarMessage = "Success: Project deleted"
                                         showSnackbar = true
                                         navController.navigateUp()
                                     },
                                     onError = { e ->
                                         isProcessing = false
-                                        snackbarMessage = "Failed to delete: ${e.message}"
+                                        snackbarMessage = "Failed to delete project: ${e.message}"
                                         showSnackbar = true
                                     }
                                 )

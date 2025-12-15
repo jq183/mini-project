@@ -92,7 +92,7 @@ fun AdminDashboardPage(navController: NavController) {
                 val allReports = reportsSnapshot.documents
 
                 val pendingReports = allReports.filter {
-                    it.getString("Status") == "Pending"
+                    it.getString("Status") == "pending"
                 }.size
 
                 val resolvedReports = allReports.filter {

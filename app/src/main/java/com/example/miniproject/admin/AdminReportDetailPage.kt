@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.miniproject.UserScreen.Project
 import com.example.miniproject.repository.Admin
 import com.example.miniproject.repository.GroupedReport
 import com.example.miniproject.repository.Report
@@ -31,6 +32,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import com.example.miniproject.repository.ProjectRepository
 import com.example.miniproject.repository.AdminRepository
+
 data class Tuple4<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,6 +45,7 @@ fun AdminReportDetailPage(
     val reportRepository = remember { ReportRepository() }
 
     var groupedReport by remember { mutableStateOf<GroupedReport?>(null) }
+    var projectData by remember { mutableStateOf<Project?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
@@ -60,6 +63,7 @@ fun AdminReportDetailPage(
             currentAdmin = adminRepository.getCurrentAdmin()
 
             try {
+                // Load reports
                 val result = reportRepository.getReportsForProject(projectId)
 
                 result.fold(
@@ -80,10 +84,21 @@ fun AdminReportDetailPage(
                         } else {
                             errorMessage = "No reports found for this project"
                         }
-                        isLoading = false
                     },
                     onFailure = { exception ->
                         errorMessage = exception.message ?: "Failed to load reports"
+                    }
+                )
+
+                // Load project data from Firebase
+                projectRepository.getProjectById(
+                    projectId = projectId,
+                    onSuccess = { project ->
+                        projectData = project
+                        isLoading = false
+                    },
+                    onError = { exception ->
+                        errorMessage = exception.message ?: "Failed to load project data"
                         isLoading = false
                     }
                 )
@@ -93,7 +108,6 @@ fun AdminReportDetailPage(
             }
         }
     }
-
 
     Scaffold(
         topBar = {
@@ -277,7 +291,6 @@ fun AdminReportDetailPage(
                     }
                 }
 
-
                 // Summary Statistics
                 item {
                     Card(
@@ -374,8 +387,7 @@ fun AdminReportDetailPage(
                                     color = TextSecondary
                                 )
                                 Text(
-                                    groupedReport!!.mostCommonCategory.replace("_", " ")
-                                        .capitalize(),
+                                    groupedReport!!.mostCommonCategory.replace("_", " ").capitalize(),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = ErrorRed
@@ -385,44 +397,111 @@ fun AdminReportDetailPage(
                     }
                 }
 
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = BackgroundWhite),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(20.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "Project Details",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
-                                )
-                                TextButton(
-                                    onClick = { navController.navigate("adminProjectDetail/$projectId") }
+                // Project Details Card - Using real Firebase data
+                if (projectData != null) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = BackgroundWhite),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("View Full", fontSize = 13.sp)
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowForward,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
+                                    Text(
+                                        "Project Details",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextPrimary
                                     )
+                                    TextButton(
+                                        onClick = { navController.navigate("adminProjectDetail/$projectId") }
+                                    ) {
+                                        Text("View Full", fontSize = 13.sp)
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowForward,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                ProjectInfoRow("Category", projectData!!.category)
+                                ProjectInfoRow("Creator", projectData!!.creatorName)
+                                ProjectInfoRow("Status", projectData!!.status.replaceFirstChar {
+                                    if (it.isLowerCase()) it.titlecase() else it.toString()
+                                })
+                                ProjectInfoRow(
+                                    "Funding",
+                                    "RM ${String.format("%.0f", projectData!!.currentAmount)} / RM ${String.format("%.0f", projectData!!.goalAmount)}"
+                                )
+                                ProjectInfoRow("Backers", "${projectData!!.backers}")
+                                ProjectInfoRow("Days Left", "${projectData!!.daysLeft}")
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    if (projectData!!.isOfficial) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = SuccessGreen.copy(alpha = 0.1f)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Verified,
+                                                    contentDescription = "Verified",
+                                                    modifier = Modifier.size(14.dp),
+                                                    tint = SuccessGreen
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "Verified",
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = SuccessGreen
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    if (projectData!!.isWarning) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = ErrorRed.copy(alpha = 0.1f)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Warning,
+                                                    contentDescription = "Warning",
+                                                    modifier = Modifier.size(14.dp),
+                                                    tint = ErrorRed
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "Flagged",
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = ErrorRed
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Mock project info - replace with actual data
-                            ProjectInfoRow("Category", "Technology")
-                            ProjectInfoRow("Creator", "John Doe")
-                            ProjectInfoRow("Status", "Active")
-                            ProjectInfoRow("Funding", "RM 5,000 / RM 10,000")
                         }
                     }
                 }
@@ -463,7 +542,6 @@ fun AdminReportDetailPage(
             }
         )
     }
-
 
     // Confirmation Dialog
     if (showConfirmDialog && selectedAction != null) {
@@ -693,8 +771,6 @@ fun DetailedReportCard(report: Report) {
     }
 }
 
-
-
 @Composable
 fun ActionOption(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -762,6 +838,7 @@ fun ActionOption(
         }
     }
 }
+
 
 @Composable
 fun ActionSelectionDialog(

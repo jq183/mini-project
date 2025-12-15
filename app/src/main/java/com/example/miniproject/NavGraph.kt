@@ -42,11 +42,15 @@ import com.example.miniproject.AdminScreen.AdminReportDetailPage
 import com.example.miniproject.AdminScreen.AdminReportsPage
 import com.example.miniproject.LoginScreen.ResetPwPage
 import com.example.miniproject.LoginScreen.SignUpPage
-import com.example.miniproject.UserScreen.ProfileScreen.ChangeEmailPage
-import com.example.miniproject.UserScreen.ProfileScreen.ChangePwPage
+import com.example.miniproject.Payment.TngPage
+import com.example.miniproject.Payment.TopUpPage
+import com.example.miniproject.UserScreen.CreateProjectPage
 import com.example.miniproject.UserScreen.MainPage
 import com.example.miniproject.UserScreen.MyProjectsPage
+import com.example.miniproject.UserScreen.ProfileScreen.ChangeEmailPage
+import com.example.miniproject.UserScreen.ProfileScreen.ChangePwPage
 import com.example.miniproject.UserScreen.ProfileScreen.ProfilePage
+import com.example.miniproject.UserScreen.ProjectDetailPage
 import com.example.miniproject.admin.AdminLogin
 import com.example.miniproject.admin.ChangePasswordScreen
 import com.example.miniproject.ui.theme.BackgroundWhite
@@ -92,6 +96,19 @@ fun AppNavigation() {
 
         composable  ("myProject"){
             MyProjectsPage(navController)
+        }
+
+        composable("projectDetail/{projectId}") { backStackEntry ->
+            ProjectDetailPage(
+                navController = navController,
+                projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            )
+        }
+        composable ("createProject"){
+            CreateProjectPage(navController)
+        }
+        composable ("editProfile"){
+            //EditProfilePage(navController)
         }
 
         composable ("changePw"){
@@ -142,6 +159,47 @@ fun AppNavigation() {
             )
         }
 
+        composable(
+            route = "topUpPage/{fromPayment}",
+            arguments = listOf(navArgument("fromPayment") { type = NavType.BoolType })
+        ) { backStackEntry ->
+            val fromPayment = backStackEntry.arguments?.getBoolean("fromPayment") ?: false
+            TopUpPage(navController, isFromPaymentFlow = fromPayment)
+        }
+
+        composable("OnlinePage"){
+
+        }
+
+        composable("PaymentOption"){
+
+        }
+
+        composable("PaymentSuccess"){
+
+        }
+
+        composable("SupportPage"){
+
+        }
+
+        composable(
+            route = "TngPage/{amount}",
+            arguments = listOf(
+                navArgument("amount") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val amount = backStackEntry.arguments?.getString("amount") ?: "0.00"
+            TngPage(
+                amount = amount,
+                navController = navController
+            )
+        }
+
+
+        composable("WalletPage"){
+
+        }
 
     }
 }

@@ -1,14 +1,20 @@
 package com.example.miniproject.repository
 
+import android.net.Uri
 import com.example.miniproject.UserScreen.Project
-import java.text.SimpleDateFormat
-import java.util.*
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
+
 
 class ProjectRepository {
     private val db = FirebaseFirestore.getInstance()
+    private val storage = FirebaseStorage.getInstance().reference
     private val projectsRef = db.collection("projects")
     private val certificationsRef = db.collection("Certifications")
     private val actionRepository = AdminActionRepository()
@@ -32,6 +38,57 @@ class ProjectRepository {
         }
 
         return newId
+    }
+
+    fun createProject(
+        project: Project,
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        val projectId = generateProjectId()
+
+        val data = hashMapOf(
+            "Title" to project.title,
+            "Description" to project.description,
+            "Category" to project.category,
+            "GoalAmount" to project.goalAmount,
+            "CurrentAmount" to 0.0,
+            "Backers" to 0,
+            "CreatorId" to project.creatorId,
+            "CreatorName" to project.creatorName,
+            "DaysLeft" to 30,
+            "Status" to "active",
+            "ImageUrl" to project.imageUrl,
+            "CreatedAt" to Timestamp.now(),
+            "isOfficial" to false,
+            "isWarning" to false,
+            "isComplete" to false
+        )
+
+        projectsRef.document(projectId)
+            .set(data)
+            .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { onError(it) }
+    }
+
+    fun uploadImageAndCreateProject(
+        imageUri: Uri,
+        project: Project,
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        val filePath = "project_images/${UUID.randomUUID()}.jpg"
+
+        storage.child(filePath).putFile(imageUri)
+            .addOnSuccessListener {
+                storage.child(filePath).downloadUrl
+                    .addOnSuccessListener { downloadUrl ->
+                        val updatedProject = project.copy(imageUrl = downloadUrl.toString())
+                        createProject(updatedProject, onSuccess, onError)
+                    }
+                    .addOnFailureListener { onError(it) }
+            }
+            .addOnFailureListener { onError(it) }
     }
 
     fun getAllProjects(
