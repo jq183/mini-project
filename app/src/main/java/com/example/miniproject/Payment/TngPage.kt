@@ -82,7 +82,7 @@ fun TngPage(
                 status = newStatus
                 // DELAY slightly so user sees "Payment Received" text before navigating
                 delay(1500)
-                navController.navigate("paymentSuccess/$amount/TG") {
+                navController.navigate("paymentSuccess/$amount/TnG") {
                     // Remove TngPage from backstack so they can't go back to QR
                     popUpTo("tngPage/$amount") { inclusive = true }
                 }

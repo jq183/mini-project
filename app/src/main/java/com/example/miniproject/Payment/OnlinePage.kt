@@ -182,7 +182,7 @@ fun OnlinePage(
             // Color changes based on enabled state.
             Button(
                 onClick = {
-                    navController.navigate("paymentSuccessPage")
+                    navController.navigate("paymentSuccess/$paymentAmount/OnlinePayment")
                 },
                 enabled = isFormValid,
                 modifier = Modifier
