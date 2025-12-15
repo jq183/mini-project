@@ -65,6 +65,7 @@ import com.example.miniproject.ui.theme.TextSecondary
 import com.google.firebase.auth.FirebaseAuth
 import com.example.miniproject.UserScreen.ProjectAnalyticsPage
 import com.example.miniproject.UserScreen.ReportProjectPage
+import com.example.miniproject.admin.AdminActionsPage
 
 @Composable
 fun AppNavigation() {
@@ -172,6 +173,10 @@ fun AppNavigation() {
         }
         composable("adminDashboard"){
             AdminDashboardPage(navController)
+        }
+
+        composable("adminRanking") {
+            AdminActionsPage(navController = navController)
         }
 
         composable("adminProjectDetail/{projectId}") { backStackEntry ->

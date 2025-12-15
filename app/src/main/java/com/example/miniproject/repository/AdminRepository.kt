@@ -6,6 +6,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
+import java.util.Calendar
 
 data class Admin(
     val adminId: String = "",
@@ -216,6 +217,9 @@ class AdminActionRepository {
         additionalInfo: String = ""
     ): Result<String> {
         return try {
+            // Check if we need to reset first
+            checkAndResetIfNewMonth()
+
             val projectDoc = projectsRef.document(projectId).get().await()
             val projectTitle = projectDoc.getString("Title") ?: "Unknown Project"
 
@@ -223,7 +227,6 @@ class AdminActionRepository {
             val adminEmail = adminDoc.getString("Email") ?: "Unknown Admin"
 
             val actionId = generateActionId()
-
 
             val actionData = hashMapOf(
                 "Action_Type" to actionType,
@@ -233,7 +236,8 @@ class AdminActionRepository {
                 "Admin_Email" to adminEmail,
                 "Description" to description,
                 "Additional_Info" to additionalInfo,
-                "Timestamp" to Timestamp.now()
+                "Timestamp" to Timestamp.now(),
+                "Month_Key" to getCurrentMonthKey() // Add month tracking
             )
 
             actionsRef.document(actionId).set(actionData).await()
@@ -246,6 +250,9 @@ class AdminActionRepository {
 
     suspend fun getAllActions(): Result<List<AdminAction>> {
         return try {
+            // Check if we need to reset first
+            checkAndResetIfNewMonth()
+
             val snapshot = actionsRef
                 .orderBy("Timestamp", Query.Direction.DESCENDING)
                 .get()
@@ -346,6 +353,50 @@ class AdminActionRepository {
             }
 
             Result.success(actions)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun getCurrentMonthKey(): String {
+        val calendar = Calendar.getInstance()
+        val year = calendar.get(Calendar.YEAR)
+        val month = calendar.get(Calendar.MONTH) + 1 // Calendar.MONTH is 0-based
+        return "$year-${month.toString().padStart(2, '0')}"
+    }
+
+    // Check if we need to reset (new month)
+    suspend fun checkAndResetIfNewMonth(): Result<Boolean> {
+        return try {
+            val currentMonthKey = getCurrentMonthKey()
+            val metadataRef = db.collection("AdminMetadata").document("current_period")
+
+            val metadataDoc = metadataRef.get().await()
+            val storedMonthKey = metadataDoc.getString("month_key")
+
+            if (storedMonthKey != currentMonthKey) {
+                // New month - delete all actions
+                val snapshot = actionsRef.get().await()
+                val batch = db.batch()
+
+                snapshot.documents.forEach { doc ->
+                    batch.delete(doc.reference)
+                }
+
+                batch.commit().await()
+
+                // Update metadata
+                metadataRef.set(
+                    hashMapOf(
+                        "month_key" to currentMonthKey,
+                        "reset_at" to Timestamp.now()
+                    )
+                ).await()
+
+                Result.success(true) // Reset occurred
+            } else {
+                Result.success(false) // No reset needed
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

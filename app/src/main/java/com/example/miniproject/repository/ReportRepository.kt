@@ -23,6 +23,7 @@ data class GroupedReport(
     val projectId: String,
     val projectTitle: String,
     val reports: List<Report>,
+    val projectCategory: String,
     val totalReports: Int,
     val latestReport: Report,
     val categoryBreakdown: Map<String, Int>
@@ -41,14 +42,11 @@ data class GroupedReport(
             }
         }
 
-
     val pendingCount: Int
         get() = reports.count { it.status == "pending" }
 
-
     val resolvedCount: Int
         get() = reports.count { it.status == "resolved" }
-
 
     val dismissedCount: Int
         get() = reports.count { it.status == "dismissed" }
@@ -56,7 +54,6 @@ data class GroupedReport(
 
 class ReportRepository {
     private val db = FirebaseFirestore.getInstance()
-
 
     suspend fun getAllReportsGrouped(): Result<List<GroupedReport>> {
         return try {
@@ -137,12 +134,10 @@ class ReportRepository {
         }
     }
 
-
     fun filterReportsByStatus(reports: List<Report>, status: String): List<Report> {
         if (status == "All") return reports
         return reports.filter { it.status.equals(status, ignoreCase = true) }
     }
-
 
     fun groupReportsByProject(reports: List<Report>): List<GroupedReport> {
         return reports
@@ -156,6 +151,7 @@ class ReportRepository {
                     projectId = projectId,
                     projectTitle = projectReports.first().projectTitle,
                     reports = projectReports.sortedByDescending { it.reportedAt?.seconds ?: 0 },
+                    projectCategory = "All",
                     totalReports = projectReports.size,
                     latestReport = projectReports.maxByOrNull { it.reportedAt?.seconds ?: 0 }!!,
                     categoryBreakdown = categoryBreakdown
@@ -164,6 +160,37 @@ class ReportRepository {
             .sortedByDescending { it.totalReports }
     }
 
+
+    suspend fun groupReportsByProjectWithCategory(reports: List<Report>): List<GroupedReport> {
+        return reports
+            .groupBy { it.projectId }
+            .map { (projectId, projectReports) ->
+
+                var projectCategory = "All"
+                try {
+                    val projectDoc = db.collection("projects").document(projectId).get().await()
+                    projectCategory = projectDoc.getString("Category") ?: "All"
+                } catch (e: Exception) {
+
+                    android.util.Log.e("ReportRepository", "Failed to fetch category for project $projectId", e)
+                }
+
+                val categoryBreakdown = projectReports
+                    .groupBy { it.reportCategory }
+                    .mapValues { it.value.size }
+
+                GroupedReport(
+                    projectId = projectId,
+                    projectTitle = projectReports.first().projectTitle,
+                    projectCategory = projectCategory,
+                    reports = projectReports.sortedByDescending { it.reportedAt?.seconds ?: 0 },
+                    totalReports = projectReports.size,
+                    latestReport = projectReports.maxByOrNull { it.reportedAt?.seconds ?: 0 }!!,
+                    categoryBreakdown = categoryBreakdown
+                )
+            }
+            .sortedByDescending { it.totalReports }
+    }
 
     suspend fun updateReportStatus(
         reportId: String,
@@ -241,16 +268,13 @@ class ReportRepository {
 
     suspend fun getReportsForProject(projectId: String): Result<List<Report>> {
         return try {
-
             val projectDoc = db.collection("projects").document(projectId).get().await()
             val projectTitle = projectDoc.getString("Title") ?: "Unknown Project"
-
 
             val snapshot = db.collection("Reports")
                 .whereEqualTo("Project_ID", projectId)
                 .get()
                 .await()
-
 
             val reports = if (snapshot.isEmpty) {
                 db.collection("Reports")
@@ -299,7 +323,6 @@ class ReportRepository {
                 }
             }
 
-
             val sortedReports = reports.sortedByDescending { it.reportedAt?.seconds ?: 0 }
 
             Result.success(sortedReports)
@@ -307,7 +330,6 @@ class ReportRepository {
             Result.failure(e)
         }
     }
-
 
     suspend fun hasNewPendingReports(projectId: String): Result<Boolean> {
         return try {
@@ -327,7 +349,7 @@ class ReportRepository {
     suspend fun addReport(report: Report): Result<Boolean> {
         return try {
             val newReport = hashMapOf<String, Any?>(
-                "Admin_ID" to report.reportedBy.takeIf { false }, // can remove if unnecessary
+                "Admin_ID" to report.reportedBy.takeIf { false },
                 "Category" to report.reportCategory,
                 "Description" to report.description,
                 "Project_ID" to report.projectId,
@@ -347,7 +369,6 @@ class ReportRepository {
 
             Result.success(true)
         } catch (e: Exception) {
-            // Use Log.e to make sure you see the error
             android.util.Log.e("ReportRepository", "Failed to add report", e)
             Result.failure(e)
         }

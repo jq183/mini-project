@@ -1,5 +1,9 @@
 package com.example.miniproject.AdminScreen
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -21,9 +26,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.miniproject.UserScreen.PageControl
 import com.example.miniproject.UserScreen.Project
 import com.example.miniproject.repository.ProjectRepository
 import com.example.miniproject.ui.theme.*
+import kotlinx.coroutines.coroutineScope
+
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +42,11 @@ fun AdminMainPage(navController: NavController) {
     var selectedStatus by remember { mutableStateOf("All") }
     var selectedSort by remember { mutableStateOf("Newest") }
     var showFilterSheet by remember { mutableStateOf(false) }
+    var currentPage by remember { mutableStateOf(1) }
+    val itemsPerPage = 10
+    var isBottomBarVisible by remember { mutableStateOf(true) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     var tempCategory by remember { mutableStateOf(selectedCategory) }
     var tempSort by remember { mutableStateOf(selectedSort) }
@@ -60,6 +74,28 @@ fun AdminMainPage(navController: NavController) {
                 isLoading = false
             }
         )
+    }
+    LaunchedEffect(listState) {
+        var previousIndex = listState.firstVisibleItemIndex
+        var previousScrollOffset = listState.firstVisibleItemScrollOffset
+
+        snapshotFlow {
+            listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+        }.collect { (currentIndex, currentScrollOffset) ->
+            isBottomBarVisible = when {
+                currentIndex < previousIndex -> true
+                currentIndex > previousIndex -> false
+                currentScrollOffset < previousScrollOffset -> true
+                currentScrollOffset > previousScrollOffset -> false
+                else -> isBottomBarVisible
+            }
+
+            previousIndex = currentIndex
+            previousScrollOffset = currentScrollOffset
+        }
+    }
+    LaunchedEffect(selectedCategory, selectedStatus, selectedSort, searchQuery) {
+        currentPage = 1
     }
 
     val filteredProjects = remember(selectedCategory, selectedStatus, selectedSort, searchQuery, projects) {
@@ -92,6 +128,17 @@ fun AdminMainPage(navController: NavController) {
         }
     }
 
+    val totalPages = (filteredProjects.size + itemsPerPage - 1) / itemsPerPage
+    val paginatedProjects = remember(filteredProjects, currentPage) {
+        val startIndex = (currentPage - 1) * itemsPerPage
+        val endIndex = minOf(startIndex + itemsPerPage, filteredProjects.size)
+        if (startIndex < filteredProjects.size) {
+            filteredProjects.subList(startIndex, endIndex)
+        } else {
+            emptyList()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -109,13 +156,26 @@ fun AdminMainPage(navController: NavController) {
             )
         },
         bottomBar = {
-            AdminBottomNavigationBar(
-                navController = navController,
-                currentRoute = currentRoute
-            )
+            AnimatedVisibility(
+                visible = isBottomBarVisible,
+                enter = expandVertically(
+                    animationSpec = tween(200),
+                    expandFrom = Alignment.Bottom
+                ),
+                exit = shrinkVertically(
+                    animationSpec = tween(200),
+                    shrinkTowards = Alignment.Bottom
+                )
+            ) {
+                AdminBottomNavigationBar(
+                    navController = navController,
+                    currentRoute = currentRoute
+                )
+            }
         }
     ) { paddingValues ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .background(BackgroundGray)
@@ -246,7 +306,7 @@ fun AdminMainPage(navController: NavController) {
                     }
                 }
             } else {
-                items(filteredProjects) { project ->
+                items(paginatedProjects) { project ->
                     AdminProjectCard(
                         project = project,
                         onClick = {
@@ -254,6 +314,20 @@ fun AdminMainPage(navController: NavController) {
                         }
                     )
                     Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+            item {
+                if (totalPages > 1) {
+                    PageControl(
+                        currentPage = currentPage,
+                        totalPages = totalPages,
+                        onPageChange = { newPage ->
+                            currentPage = newPage
+                            scope.launch {
+                                listState.animateScrollToItem(0)
+                            }
+                        }
+                    )
                 }
             }
 

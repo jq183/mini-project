@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -24,6 +25,12 @@ import com.google.firebase.Timestamp
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.example.miniproject.UserScreen.PageControl
 
 data class AdminAction(
     val id: String = "",
@@ -48,6 +55,10 @@ fun AdminHistoryPage(navController: NavController) {
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var selectedAction by remember { mutableStateOf<AdminAction?>(null) }
     var showDetailDialog by remember { mutableStateOf(false) }
+    var currentPage by remember { mutableStateOf(1) }
+    val itemsPerPage = 10
+    var isBottomBarVisible by remember { mutableStateOf(true) }
+    val listState = rememberLazyListState()
 
     val currentRoute = navController.currentBackStackEntry?.destination?.route
     val filters = listOf(
@@ -76,9 +87,38 @@ fun AdminHistoryPage(navController: NavController) {
             )
         }
     }
+    LaunchedEffect(listState) {
+        var previousIndex = listState.firstVisibleItemIndex
+        var previousScrollOffset = listState.firstVisibleItemScrollOffset
+
+        snapshotFlow {
+            listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+        }.collect { (currentIndex, currentScrollOffset) ->
+            isBottomBarVisible = when {
+                currentIndex < previousIndex -> true
+                currentIndex > previousIndex -> false
+                currentScrollOffset < previousScrollOffset -> true
+                currentScrollOffset > previousScrollOffset -> false
+                else -> isBottomBarVisible
+            }
+
+            previousIndex = currentIndex
+            previousScrollOffset = currentScrollOffset
+        }
+    }
 
     val filteredActions = remember(selectedFilter, historyActions) {
         actionRepository.filterActionsByType(historyActions, selectedFilter)
+    }
+    val totalPages = (filteredActions.size + itemsPerPage - 1) / itemsPerPage
+    val paginatedActions = remember(filteredActions, currentPage) {
+        val startIndex = (currentPage - 1) * itemsPerPage
+        val endIndex = minOf(startIndex + itemsPerPage, filteredActions.size)
+        if (startIndex < filteredActions.size) {
+            filteredActions.subList(startIndex, endIndex)
+        } else {
+            emptyList()
+        }
     }
 
     Scaffold(
@@ -122,10 +162,22 @@ fun AdminHistoryPage(navController: NavController) {
             )
         },
         bottomBar = {
-            AdminBottomNavigationBar(
-                navController = navController,
-                currentRoute = currentRoute
-            )
+            AnimatedVisibility(
+                visible = isBottomBarVisible,
+                enter = expandVertically(
+                    animationSpec = tween(200),
+                    expandFrom = Alignment.Bottom
+                ),
+                exit = shrinkVertically(
+                    animationSpec = tween(200),
+                    shrinkTowards = Alignment.Bottom
+                )
+            ) {
+                AdminBottomNavigationBar(
+                    navController = navController,
+                    currentRoute = currentRoute
+                )
+            }
         }
     ) { paddingValues ->
         Column(
@@ -177,6 +229,9 @@ fun AdminHistoryPage(navController: NavController) {
                         }
                     }
                 }
+            }
+            LaunchedEffect(selectedFilter) {
+                currentPage = 1
             }
 
             // Content
@@ -271,11 +326,12 @@ fun AdminHistoryPage(navController: NavController) {
                 }
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(filteredActions) { action ->
+                    items(paginatedActions) { action ->
                         ActionHistoryCard(
                             action = action,
                             onClick = {
@@ -285,6 +341,21 @@ fun AdminHistoryPage(navController: NavController) {
                                 navController.navigate("adminProjectDetail/${action.projectId}")
                             }
                         )
+                    }
+
+                    item {
+                        if (totalPages > 1) {
+                            PageControl(
+                                currentPage = currentPage,
+                                totalPages = totalPages,
+                                onPageChange = { newPage ->
+                                    currentPage = newPage
+                                    scope.launch {
+                                        listState.animateScrollToItem(0)
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }

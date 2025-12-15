@@ -655,203 +655,204 @@ fun AdminProjectDetail(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Verify/Unverify
-                    ManagementActionCard(
-                        icon = if (project!!.isOfficial) Icons.Default.Cancel else Icons.Default.Verified,
-                        title = if (project!!.isOfficial) "Remove Verification" else "Verify Project",
-                        description = if (project!!.isOfficial)
-                            "Remove verified badge from this project"
-                        else
-                            "Mark this project as verified and official",
-                        color = if (project!!.isOfficial) TextSecondary else SuccessGreen,
-                        onClick = {
-                            scope.launch {
-                                if (currentAdminId == null) {
-                                    snackbarMessage = "Failed: Admin ID not found"
-                                    showSnackbar = true
+                    // Verify/Unverify - Only show if project is NOT suspended
+                    if (project!!.status != "suspended") {
+                        ManagementActionCard(
+                            icon = if (project!!.isOfficial) Icons.Default.Cancel else Icons.Default.Verified,
+                            title = if (project!!.isOfficial) "Remove Verification" else "Verify Project",
+                            description = if (project!!.isOfficial)
+                                "Remove verified badge from this project"
+                            else
+                                "Mark this project as verified and official",
+                            color = if (project!!.isOfficial) TextSecondary else SuccessGreen,
+                            onClick = {
+                                scope.launch {
+                                    if (currentAdminId == null) {
+                                        snackbarMessage = "Failed: Admin ID not found"
+                                        showSnackbar = true
+                                        showManageDialog = false
+                                        return@launch
+                                    }
+
+                                    isProcessing = true
                                     showManageDialog = false
-                                    return@launch
-                                }
 
-                                isProcessing = true
-                                showManageDialog = false
-
-                                if (project!!.isOfficial) {
-                                    repository.unverifyProject(
-                                        projectId = project!!.id,
-                                        adminId = currentAdminId!!,
-                                        onSuccess = {
-                                            repository.getProjectById(
-                                                projectId = projectId,
-                                                onSuccess = { proj ->
-                                                    project = proj
-                                                    verifiedByAdminEmail = null
-                                                    isProcessing = false
-                                                    snackbarMessage = "Success: Project verification removed"
-                                                    showSnackbar = true
-                                                },
-                                                onError = {
-                                                    isProcessing = false
-                                                    snackbarMessage = "Verification removed, but failed to refresh data"
-                                                    showSnackbar = true
-                                                }
-                                            )
-                                        },
-                                        onError = { e ->
-                                            isProcessing = false
-                                            snackbarMessage = "Failed to remove verification: ${e.message}"
-                                            showSnackbar = true
-                                        }
-                                    )
-                                } else {
-                                    repository.verifyProject(
-                                        projectId = project!!.id,
-                                        adminId = currentAdminId!!,
-                                        onSuccess = {
-                                            repository.getProjectById(
-                                                projectId = projectId,
-                                                onSuccess = { proj ->
-                                                    project = proj
-                                                    isProcessing = false
-
-                                                    // Fetch new admin email
-                                                    scope.launch {
-                                                        try {
-                                                            val certSnapshot = db.collection("Certifications")
-                                                                .whereEqualTo("Project_ID", projectId)
-                                                                .get()
-                                                                .await()
-
-                                                            if (!certSnapshot.isEmpty) {
-                                                                val adminId = certSnapshot.documents[0].getString("Admin_ID")
-                                                                if (adminId != null) {
-                                                                    val adminDoc = db.collection("Admins")
-                                                                        .document(adminId)
-                                                                        .get()
-                                                                        .await()
-                                                                    verifiedByAdminEmail = adminDoc.getString("Email")
-                                                                }
-                                                            }
-                                                        } catch (e: Exception) {
-                                                            // Silently fail
-                                                        }
+                                    if (project!!.isOfficial) {
+                                        repository.unverifyProject(
+                                            projectId = project!!.id,
+                                            adminId = currentAdminId!!,
+                                            onSuccess = {
+                                                repository.getProjectById(
+                                                    projectId = projectId,
+                                                    onSuccess = { proj ->
+                                                        project = proj
+                                                        verifiedByAdminEmail = null
+                                                        isProcessing = false
+                                                        snackbarMessage = "Success: Project verification removed"
+                                                        showSnackbar = true
+                                                    },
+                                                    onError = {
+                                                        isProcessing = false
+                                                        snackbarMessage = "Verification removed, but failed to refresh data"
+                                                        showSnackbar = true
                                                     }
+                                                )
+                                            },
+                                            onError = { e ->
+                                                isProcessing = false
+                                                snackbarMessage = "Failed to remove verification: ${e.message}"
+                                                showSnackbar = true
+                                            }
+                                        )
+                                    } else {
+                                        repository.verifyProject(
+                                            projectId = project!!.id,
+                                            adminId = currentAdminId!!,
+                                            onSuccess = {
+                                                repository.getProjectById(
+                                                    projectId = projectId,
+                                                    onSuccess = { proj ->
+                                                        project = proj
+                                                        isProcessing = false
 
-                                                    snackbarMessage = "Success: Project verified successfully"
-                                                    showSnackbar = true
-                                                },
-                                                onError = {
-                                                    isProcessing = false
-                                                    snackbarMessage = "Project verified, but failed to refresh data"
-                                                    showSnackbar = true
-                                                }
-                                            )
-                                        },
-                                        onError = { e ->
-                                            isProcessing = false
-                                            snackbarMessage = "Failed to verify project: ${e.message}"
-                                            showSnackbar = true
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    )
+                                                        scope.launch {
+                                                            try {
+                                                                val certSnapshot = db.collection("Certifications")
+                                                                    .whereEqualTo("Project_ID", projectId)
+                                                                    .get()
+                                                                    .await()
 
-                    // Flag/Unflag & Suspend/Reactivate
-                    ManagementActionCard(
-                        icon = if (project!!.status == "suspended") Icons.Default.CheckCircle else Icons.Default.Warning,
-                        title = if (project!!.status == "suspended") "Reactivate Project" else "Flag as Warning",
-                        description = if (project!!.status == "suspended")
-                            "Remove suspension and reactivate project"
-                        else
-                            "Add warning badge to alert users",
-                        color = if (project!!.status == "suspended") SuccessGreen else WarningOrange,
-                        onClick = {
-                            scope.launch {
-                                if (currentAdminId == null) {
-                                    snackbarMessage = "Failed: Admin ID not found"
-                                    showSnackbar = true
-                                    showManageDialog = false
-                                    return@launch
-                                }
-
-                                isProcessing = true
-                                showManageDialog = false
-
-                                if (project!!.status == "suspended") {
-                                    // Reactivate
-                                    repository.dismissReport(
-                                        projectId = project!!.id,
-                                        adminId = currentAdminId!!,
-                                        reportCount = 0,
-                                        onSuccess = {
-                                            repository.updateProject(
-                                                projectId = project!!.id,
-                                                updates = mapOf("Status" to "active"),
-                                                onSuccess = {
-                                                    repository.getProjectById(
-                                                        projectId = projectId,
-                                                        onSuccess = { proj ->
-                                                            project = proj
-                                                            isProcessing = false
-                                                            snackbarMessage = "Success: Project reactivated"
-                                                            showSnackbar = true
-                                                        },
-                                                        onError = {
-                                                            isProcessing = false
-                                                            snackbarMessage = "Project reactivated, but failed to refresh data"
-                                                            showSnackbar = true
+                                                                if (!certSnapshot.isEmpty) {
+                                                                    val adminId = certSnapshot.documents[0].getString("Admin_ID")
+                                                                    if (adminId != null) {
+                                                                        val adminDoc = db.collection("Admins")
+                                                                            .document(adminId)
+                                                                            .get()
+                                                                            .await()
+                                                                        verifiedByAdminEmail = adminDoc.getString("Email")
+                                                                    }
+                                                                }
+                                                            } catch (e: Exception) {
+                                                                // Silently fail
+                                                            }
                                                         }
-                                                    )
-                                                },
-                                                onError = { e ->
-                                                    isProcessing = false
-                                                    snackbarMessage = "Failed to update status: ${e.message}"
-                                                    showSnackbar = true
-                                                }
-                                            )
-                                        },
-                                        onError = { e ->
-                                            isProcessing = false
-                                            snackbarMessage = "Failed to reactivate project: ${e.message}"
-                                            showSnackbar = true
-                                        }
-                                    )
-                                } else {
-                                    // Suspend
-                                    repository.suspendProject(
-                                        projectId = project!!.id,
-                                        adminId = currentAdminId!!,
-                                        reportCount = 0,
-                                        onSuccess = {
-                                            repository.getProjectById(
-                                                projectId = projectId,
-                                                onSuccess = { proj ->
-                                                    project = proj
-                                                    isProcessing = false
-                                                    snackbarMessage = "Success: Project suspended"
-                                                    showSnackbar = true
-                                                },
-                                                onError = {
-                                                    isProcessing = false
-                                                    snackbarMessage = "Project suspended, but failed to refresh data"
-                                                    showSnackbar = true
-                                                }
-                                            )
-                                        },
-                                        onError = { e ->
-                                            isProcessing = false
-                                            snackbarMessage = "Failed to suspend project: ${e.message}"
-                                            showSnackbar = true
-                                        }
-                                    )
+
+                                                        snackbarMessage = "Success: Project verified successfully"
+                                                        showSnackbar = true
+                                                    },
+                                                    onError = {
+                                                        isProcessing = false
+                                                        snackbarMessage = "Project verified, but failed to refresh data"
+                                                        showSnackbar = true
+                                                    }
+                                                )
+                                            },
+                                            onError = { e ->
+                                                isProcessing = false
+                                                snackbarMessage = "Failed to verify project: ${e.message}"
+                                                showSnackbar = true
+                                            }
+                                        )
+                                    }
                                 }
                             }
-                        }
-                    )
+                        )
+                    }
 
-                    // Delete Project
+                    // Flag/Unflag & Suspend/Reactivate - Only show if project is NOT verified
+                    if (!project!!.isOfficial) {
+                        ManagementActionCard(
+                            icon = if (project!!.status == "suspended") Icons.Default.CheckCircle else Icons.Default.Warning,
+                            title = if (project!!.status == "suspended") "Reactivate Project" else "Flag as Warning",
+                            description = if (project!!.status == "suspended")
+                                "Remove suspension and reactivate project"
+                            else
+                                "Add warning badge to alert users",
+                            color = if (project!!.status == "suspended") SuccessGreen else WarningOrange,
+                            onClick = {
+                                scope.launch {
+                                    if (currentAdminId == null) {
+                                        snackbarMessage = "Failed: Admin ID not found"
+                                        showSnackbar = true
+                                        showManageDialog = false
+                                        return@launch
+                                    }
+
+                                    isProcessing = true
+                                    showManageDialog = false
+
+                                    if (project!!.status == "suspended") {
+                                        repository.dismissReport(
+                                            projectId = project!!.id,
+                                            adminId = currentAdminId!!,
+                                            reportCount = 0,
+                                            onSuccess = {
+                                                repository.updateProject(
+                                                    projectId = project!!.id,
+                                                    updates = mapOf("Status" to "active"),
+                                                    onSuccess = {
+                                                        repository.getProjectById(
+                                                            projectId = projectId,
+                                                            onSuccess = { proj ->
+                                                                project = proj
+                                                                isProcessing = false
+                                                                snackbarMessage = "Success: Project reactivated"
+                                                                showSnackbar = true
+                                                            },
+                                                            onError = {
+                                                                isProcessing = false
+                                                                snackbarMessage = "Project reactivated, but failed to refresh data"
+                                                                showSnackbar = true
+                                                            }
+                                                        )
+                                                    },
+                                                    onError = { e ->
+                                                        isProcessing = false
+                                                        snackbarMessage = "Failed to update status: ${e.message}"
+                                                        showSnackbar = true
+                                                    }
+                                                )
+                                            },
+                                            onError = { e ->
+                                                isProcessing = false
+                                                snackbarMessage = "Failed to reactivate project: ${e.message}"
+                                                showSnackbar = true
+                                            }
+                                        )
+                                    } else {
+                                        repository.suspendProject(
+                                            projectId = project!!.id,
+                                            adminId = currentAdminId!!,
+                                            reportCount = 0,
+                                            onSuccess = {
+                                                repository.getProjectById(
+                                                    projectId = projectId,
+                                                    onSuccess = { proj ->
+                                                        project = proj
+                                                        isProcessing = false
+                                                        snackbarMessage = "Success: Project suspended"
+                                                        showSnackbar = true
+                                                    },
+                                                    onError = {
+                                                        isProcessing = false
+                                                        snackbarMessage = "Project suspended, but failed to refresh data"
+                                                        showSnackbar = true
+                                                    }
+                                                )
+                                            },
+                                            onError = { e ->
+                                                isProcessing = false
+                                                snackbarMessage = "Failed to suspend project: ${e.message}"
+                                                showSnackbar = true
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        )
+                    }
+
+                    // Delete Project - Always show
                     ManagementActionCard(
                         icon = Icons.Default.Delete,
                         title = "Delete Project",
