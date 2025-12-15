@@ -45,6 +45,11 @@ import com.example.miniproject.Payment.TngPage
 import com.example.miniproject.Payment.TopUpPage
 import com.example.miniproject.SignUpScreen.SignUpEmailPage
 import com.example.miniproject.SignUpScreen.SignUpProfilePage
+import com.example.miniproject.Payment.OnlinePage
+import com.example.miniproject.Payment.PaymentSuccess
+import com.example.miniproject.Payment.TngPage
+import com.example.miniproject.Payment.TopUpPage
+import com.example.miniproject.Payment.WalletPage
 import com.example.miniproject.UserScreen.CreateProjectPage
 import com.example.miniproject.UserScreen.MainPage
 import com.example.miniproject.UserScreen.MyProjectsPage
@@ -165,39 +170,51 @@ fun AppNavigation() {
             TopUpPage(navController, isFromPaymentFlow = fromPayment)
         }
 
-        composable("OnlinePage"){
-
+        composable("OnlinePage/{amount}"){backStackEntry ->
+            val amount = backStackEntry.arguments?.getString("amount")?.toDoubleOrNull() ?: 10.00
+            OnlinePage(navController, paymentAmount = amount)
         }
 
         composable("PaymentOption"){
 
         }
 
-        composable("PaymentSuccess"){
+        composable(
+            route = "paymentSuccess/{amount}/{method}", // Define the route with 2 arguments
+            arguments = listOf(
+                navArgument("amount") { type = NavType.StringType },
+                navArgument("method") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            // 1. Extract the arguments passed from the previous screen
+            val amountString = backStackEntry.arguments?.getString("amount") ?: "0.00"
+            val method = backStackEntry.arguments?.getString("method") ?: "Unknown"
 
+            // 2. Convert amount to Double
+            val amount = amountString.toDoubleOrNull() ?: 0.00
+
+            // 3. Launch the Page
+            PaymentSuccess(
+                navController = navController,
+                paymentAmount = amount,
+                paymentMethod = method
+            )
         }
 
         composable("SupportPage"){
 
         }
 
-
-        composable(
-            route = "TngPage/{amount}",
-            arguments = listOf(
-                navArgument("amount") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val amount = backStackEntry.arguments?.getString("amount") ?: "0.00"
-            TngPage(
-                amount = amount,
-                navController = navController
-            )
+        composable("tngPage/{amount}") { backStackEntry ->
+            val amount = backStackEntry.arguments?.getString("amount") ?: "10.00"
+            TngPage(amount = amount, navController = navController)
         }
 
 
-        composable("WalletPage"){
-
+        // 2. WALLET PAGE (Accepts amount)
+        composable("walletPage/{amount}") { backStackEntry ->
+            val amount = backStackEntry.arguments?.getString("amount")?.toDoubleOrNull() ?: 10.00
+            WalletPage(navController, paymentAmount = amount)
         }
 
     }

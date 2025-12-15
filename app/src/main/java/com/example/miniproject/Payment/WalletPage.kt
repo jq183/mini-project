@@ -38,7 +38,7 @@ import androidx.navigation.compose.rememberNavController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WalletPaymentPage(
+fun WalletPage(
     navController: NavController,
     paymentAmount: Double = 10.00 // <--- CHANGED: Now accepts value here, defaults to 10.00
 ) {
@@ -194,6 +194,5 @@ fun WalletPaymentPage(
 @Composable
 fun WalletPaymentPreview() {
     val nav = rememberNavController()
-    // You can now pass the amount here in the preview or navigation
-    WalletPaymentPage(navController = nav, paymentAmount = 2.00)
+    WalletPage(navController = nav, paymentAmount = 2.00)
 }
