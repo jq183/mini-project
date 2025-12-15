@@ -1,5 +1,6 @@
 package com.example.miniproject.UserScreen
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,11 +16,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.rememberAsyncImagePainter
 import com.example.miniproject.BottomNavigationBar
 import com.example.miniproject.ui.theme.*
 import com.google.firebase.auth.FirebaseAuth
@@ -95,10 +98,11 @@ fun MyProjectsPage(navController: NavController) {
                             goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
                             currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
                             backers = doc.getLong("backers")?.toInt() ?: 0,
-                            daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
+                            dueDate = doc.getTimestamp("dueDate"),
                             creatorId = doc.getString("User_ID") ?: "",
                             creatorName = doc.getString("creatorName") ?: "",
-                            status = doc.getString("Status") ?: "active"
+                            status = doc.getString("Status") ?: "active",
+                            ImageUrl = doc.getString("ImageUrl") ?: ""
                         )
                         android.util.Log.d("MyProjects", "Successfully mapped: ${project.title}")
                         project
@@ -118,7 +122,6 @@ fun MyProjectsPage(navController: NavController) {
 
                 android.util.Log.d("MyProjects", "Donations found: ${donationsSnapshot.documents.size}")
 
-                // 创建一个 Map 来存储每个项目的总捐赠金额
                 val tempDonationAmounts = mutableMapOf<String, Double>()
 
                 donationsSnapshot.documents.forEach { doc ->
@@ -126,7 +129,6 @@ fun MyProjectsPage(navController: NavController) {
                     val amount = doc.getLong("amount")?.toDouble() ?: 0.0
 
                     if (projectId != null) {
-                        // 如果用户对同一个项目多次捐赠，累加金额
                         tempDonationAmounts[projectId] = (tempDonationAmounts[projectId] ?: 0.0) + amount
                     }
                 }
@@ -152,10 +154,12 @@ fun MyProjectsPage(navController: NavController) {
                                     goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
                                     currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
                                     backers = doc.getLong("backers")?.toInt() ?: 0,
-                                    daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
+                                    dueDate = doc.getTimestamp("dueDate"),
                                     creatorId = doc.getString("User_ID") ?: "",
                                     creatorName = doc.getString("creatorName") ?: "",
-                                    status = doc.getString("Status") ?: "active"
+                                    status = doc.getString("Status") ?: "active",
+                                    ImageUrl = doc.getString("ImageUrl") ?: "" // 添加这一行！
+
                                 )
                             } catch (e: Exception) {
                                 android.util.Log.e("MyProjects", "Error mapping backed project: ${e.message}", e)
@@ -165,7 +169,7 @@ fun MyProjectsPage(navController: NavController) {
                         allProjects.addAll(projects)
                     }
                     backedProjects = allProjects
-                    donationAmounts = tempDonationAmounts  // 保存捐赠金额
+                    donationAmounts = tempDonationAmounts
                     android.util.Log.d("MyProjects", "Final backed projects count: ${backedProjects.size}")
                 } else {
                     backedProjects = emptyList()
@@ -405,7 +409,7 @@ fun MyProjectsPage(navController: NavController) {
                                         }
                                     )
                                 }
-                            }  // Box 结束
+                            }
 
                             IconButton(onClick = { sortDescending = !sortDescending }) {
                                 Icon(
@@ -416,7 +420,6 @@ fun MyProjectsPage(navController: NavController) {
                             }
                         }
 
-// 排序逻辑
                         val sortedProjects = when(sortOption) {
                             0 -> if (sortDescending)
                                 backedProjects.sortedByDescending { donationAmounts[it.id] ?: 0.0 }
@@ -530,7 +533,6 @@ fun MyProjectCard(
         colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
     ) {
         Column {
-            // Project Image with Status Badge and Menu
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -547,26 +549,51 @@ fun MyProjectCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = when (project.category) {
-                        "Technology" -> Icons.Default.Computer
-                        "Charity" -> Icons.Default.Favorite
-                        "Education" -> Icons.Default.School
-                        "Medical" -> Icons.Default.LocalHospital
-                        "Games" -> Icons.Default.SportsEsports
-                        else -> Icons.Default.Image
-                    },
-                    contentDescription = project.category,
-                    modifier = Modifier.size(80.dp),
-                    tint = when (project.category) {
-                        "Technology" -> PrimaryBlue.copy(alpha = 0.5f)
-                        "Charity" -> SuccessGreen.copy(alpha = 0.5f)
-                        "Education" -> WarningOrange.copy(alpha = 0.5f)
-                        "Medical" -> ErrorRed.copy(alpha = 0.5f)
-                        "Games" -> InfoBlue.copy(alpha = 0.5f)
-                        else -> TextSecondary.copy(alpha = 0.5f)
+                if (project.ImageUrl.isNotEmpty()) {
+                    Image(
+                        painter = rememberAsyncImagePainter(model = project.ImageUrl),
+                        contentDescription = project.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                when (project.category) {
+                                    "Technology" -> PrimaryBlue.copy(alpha = 0.2f)
+                                    "Charity" -> SuccessGreen.copy(alpha = 0.2f)
+                                    "Education" -> WarningOrange.copy(alpha = 0.2f)
+                                    "Medical" -> ErrorRed.copy(alpha = 0.2f)
+                                    "Games" -> InfoBlue.copy(alpha = 0.2f)
+                                    else -> TextSecondary.copy(alpha = 0.2f)
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = when (project.category) {
+                                "Technology" -> Icons.Default.Computer
+                                "Charity" -> Icons.Default.Favorite
+                                "Education" -> Icons.Default.School
+                                "Medical" -> Icons.Default.LocalHospital
+                                "Games" -> Icons.Default.SportsEsports
+                                else -> Icons.Default.Image
+                            },
+                            contentDescription = project.category,
+                            modifier = Modifier.size(80.dp),
+                            tint = when (project.category) {
+                                "Technology" -> PrimaryBlue.copy(alpha = 0.5f)
+                                "Charity" -> SuccessGreen.copy(alpha = 0.5f)
+                                "Education" -> WarningOrange.copy(alpha = 0.5f)
+                                "Medical" -> ErrorRed.copy(alpha = 0.5f)
+                                "Games" -> InfoBlue.copy(alpha = 0.5f)
+                                else -> TextSecondary.copy(alpha = 0.5f)
+                            }
+                        )
                     }
-                )
+                }
 
                 Row(
                     modifier = Modifier
@@ -689,7 +716,6 @@ fun MyProjectCard(
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
-                // Title
                 Text(
                     text = project.title,
                     fontSize = 18.sp,
@@ -728,7 +754,6 @@ fun MyProjectCard(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Progress Info Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -821,7 +846,6 @@ fun BackedProjectCard(
         colors = CardDefaults.cardColors(containerColor = BackgroundWhite)
     ) {
         Column {
-            // Project Image
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -838,26 +862,35 @@ fun BackedProjectCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = when (project.category) {
-                        "Technology" -> Icons.Default.Computer
-                        "Charity" -> Icons.Default.Favorite
-                        "Education" -> Icons.Default.School
-                        "Medical" -> Icons.Default.LocalHospital
-                        "Games" -> Icons.Default.SportsEsports
-                        else -> Icons.Default.Image
-                    },
-                    contentDescription = project.category,
-                    modifier = Modifier.size(80.dp),
-                    tint = when (project.category) {
-                        "Technology" -> PrimaryBlue.copy(alpha = 0.5f)
-                        "Charity" -> SuccessGreen.copy(alpha = 0.5f)
-                        "Education" -> WarningOrange.copy(alpha = 0.5f)
-                        "Medical" -> ErrorRed.copy(alpha = 0.5f)
-                        "Games" -> InfoBlue.copy(alpha = 0.5f)
-                        else -> TextSecondary.copy(alpha = 0.5f)
-                    }
-                )
+                if (project.ImageUrl.isNotEmpty()) {
+                    Image(
+                        painter = rememberAsyncImagePainter(model = project.ImageUrl),
+                        contentDescription = project.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = when (project.category) {
+                            "Technology" -> Icons.Default.Computer
+                            "Charity" -> Icons.Default.Favorite
+                            "Education" -> Icons.Default.School
+                            "Medical" -> Icons.Default.LocalHospital
+                            "Games" -> Icons.Default.SportsEsports
+                            else -> Icons.Default.Image
+                        },
+                        contentDescription = project.category,
+                        modifier = Modifier.size(80.dp),
+                        tint = when (project.category) {
+                            "Technology" -> PrimaryBlue.copy(alpha = 0.5f)
+                            "Charity" -> SuccessGreen.copy(alpha = 0.5f)
+                            "Education" -> WarningOrange.copy(alpha = 0.5f)
+                            "Medical" -> ErrorRed.copy(alpha = 0.5f)
+                            "Games" -> InfoBlue.copy(alpha = 0.5f)
+                            else -> TextSecondary.copy(alpha = 0.5f)
+                        }
+                    )
+                }
             }
 
             Column(

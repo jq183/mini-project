@@ -47,14 +47,13 @@ import com.example.miniproject.SignUpScreen.SignUpEmailPage
 import com.example.miniproject.SignUpScreen.SignUpProfilePage
 import com.example.miniproject.Payment.OnlinePage
 import com.example.miniproject.Payment.PaymentSuccess
-import com.example.miniproject.Payment.TngPage
-import com.example.miniproject.Payment.TopUpPage
 import com.example.miniproject.Payment.WalletPage
 import com.example.miniproject.UserScreen.CreateProjectPage
 import com.example.miniproject.UserScreen.MainPage
 import com.example.miniproject.UserScreen.MyProjectsPage
 import com.example.miniproject.UserScreen.ProfileScreen.ChangeEmailPage
 import com.example.miniproject.UserScreen.ProfileScreen.ChangePwPage
+import com.example.miniproject.UserScreen.ProfileScreen.FAQPage
 import com.example.miniproject.UserScreen.ProfileScreen.ProfilePage
 import com.example.miniproject.UserScreen.ProjectDetailPage
 import com.example.miniproject.admin.AdminLogin
@@ -121,6 +120,11 @@ fun AppNavigation() {
         composable ("changeEmail"){
             ChangeEmailPage(navController)
         }
+
+        composable ("faq"){
+            FAQPage(navController)
+        }
+
         //----admin------
         composable("admin login") {
             AdminLogin(navController)

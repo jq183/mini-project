@@ -321,7 +321,7 @@ fun ProfilePage(navController: NavController) {
                             icon = Icons.Default.History,
                             title = "Transaction History",
                             subtitle = "View your transactions",
-                            onClick = { navController.navigate("transactionHistory") }
+                            onClick = { }
                         )
 
                         HorizontalDivider(
@@ -398,6 +398,39 @@ fun ProfilePage(navController: NavController) {
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
             item {
+                Text(
+                    text = "Help & Support",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                )
+            }
+
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = BackgroundWhite),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column {
+                        ProfileMenuItem(
+                            icon = Icons.Default.Help,
+                            title = "FAQ",
+                            subtitle = "Frequently asked questions",
+                            onClick = { navController.navigate("faq") }
+                        )
+                    }
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+
+            item {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -434,6 +467,7 @@ fun ProfilePage(navController: NavController) {
             }
 
             item { Spacer(modifier = Modifier.height(32.dp)) }
+
         }
     }
 
