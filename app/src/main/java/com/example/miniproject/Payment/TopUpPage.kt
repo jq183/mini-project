@@ -135,7 +135,7 @@ fun TopUpPage(
             Text("Select Payment Method", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Modified functionality: Clicking a method simulates a successful Top Up
+
             val onPaymentMethodClick = {
                 val topUpValue = amount.toDoubleOrNull() ?: 0.00
                 // Logic: 150.00 is just a mock result derived from your image request
@@ -143,14 +143,9 @@ fun TopUpPage(
                 val newTotalBalance = 150.00
 
                 if (isFromPaymentFlow) {
-                    // Purpose: Immediate top up for payment
-                    // Pass result back to previous screen
                     navController?.previousBackStackEntry?.savedStateHandle?.set("new_balance", newTotalBalance)
                     navController?.popBackStack()
                 } else {
-                    // Purpose: Direct Wallet Top Up
-                    // Navigate to success page or home
-                    // navController?.navigate("success_page")
                 }
             }
 
