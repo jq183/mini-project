@@ -41,15 +41,14 @@ import com.example.miniproject.AdminScreen.AdminProjectDetail
 import com.example.miniproject.AdminScreen.AdminReportDetailPage
 import com.example.miniproject.AdminScreen.AdminReportsPage
 import com.example.miniproject.LoginScreen.ResetPwPage
-import com.example.miniproject.Payment.TngPage
-import com.example.miniproject.Payment.TopUpPage
-import com.example.miniproject.SignUpScreen.SignUpEmailPage
-import com.example.miniproject.SignUpScreen.SignUpProfilePage
 import com.example.miniproject.Payment.OnlinePage
+import com.example.miniproject.Payment.PaymentOption
 import com.example.miniproject.Payment.PaymentSuccess
 import com.example.miniproject.Payment.TngPage
 import com.example.miniproject.Payment.TopUpPage
 import com.example.miniproject.Payment.WalletPage
+import com.example.miniproject.SignUpScreen.SignUpEmailPage
+import com.example.miniproject.SignUpScreen.SignUpProfilePage
 import com.example.miniproject.UserScreen.CreateProjectPage
 import com.example.miniproject.UserScreen.MainPage
 import com.example.miniproject.UserScreen.MyProjectsPage
@@ -57,6 +56,7 @@ import com.example.miniproject.UserScreen.ProfileScreen.ChangeEmailPage
 import com.example.miniproject.UserScreen.ProfileScreen.ChangePwPage
 import com.example.miniproject.UserScreen.ProfileScreen.ProfilePage
 import com.example.miniproject.UserScreen.ProjectDetailPage
+import com.example.miniproject.UserScreen.SupportPage
 import com.example.miniproject.admin.AdminLogin
 import com.example.miniproject.admin.ChangePasswordScreen
 import com.example.miniproject.ui.theme.BackgroundWhite
@@ -170,13 +170,18 @@ fun AppNavigation() {
             TopUpPage(navController, isFromPaymentFlow = fromPayment)
         }
 
-        composable("OnlinePage/{amount}"){backStackEntry ->
+        composable("onlinePage/{amount}"){backStackEntry ->
             val amount = backStackEntry.arguments?.getString("amount")?.toDoubleOrNull() ?: 10.00
             OnlinePage(navController, paymentAmount = amount)
         }
 
-        composable("PaymentOption"){
-
+        composable(
+            route = "paymentOption/{amount}",
+            arguments = listOf(navArgument("amount") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val amountStr = backStackEntry.arguments?.getString("amount") ?: "10.00"
+            val amount = amountStr.toDoubleOrNull() ?: 10.00
+            PaymentOption(navController = navController, amount = amount)
         }
 
         composable(
@@ -201,8 +206,20 @@ fun AppNavigation() {
             )
         }
 
-        composable("SupportPage"){
+        composable(
+            route = "supportPage/{projectTitle}",
+            arguments = listOf(
+                navArgument("projectTitle") { type = NavType.StringType }
+                // You can add imageUrl here later if needed
+            )
+        ) { backStackEntry ->
+            val title = backStackEntry.arguments?.getString("projectTitle") ?: "Unknown Project"
 
+            SupportPage(
+                navController = navController,
+                projectTitle = title,
+                projectImageUrl = "" // Pass image URL here if you add it to arguments
+            )
         }
 
         composable("tngPage/{amount}") { backStackEntry ->
