@@ -45,6 +45,7 @@ fun ChangeEmailPage(navController: NavController) {
     var newEmail by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
+    var emailError by remember { mutableStateOf("") }  // ✅ 新增
     var passwordError by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var verificationSent by remember { mutableStateOf(false) }
@@ -131,7 +132,10 @@ fun ChangeEmailPage(navController: NavController) {
                         Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(
                             value = newEmail,
-                            onValueChange = { newEmail = it.trim() },
+                            onValueChange = {
+                                newEmail = it.trim()
+                                emailError = ""  // ✅ 清除错误
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                             placeholder = { Text("Enter new email") },
@@ -142,26 +146,35 @@ fun ChangeEmailPage(navController: NavController) {
                                 unfocusedContainerColor = BackgroundWhite
                             ),
                             shape = RoundedCornerShape(12.dp),
-                            isError = newEmail.isNotEmpty() && (!isEmailValid || !isNewEmailDifferent)
+                            isError = (newEmail.isNotEmpty() && (!isEmailValid || !isNewEmailDifferent)) || emailError.isNotEmpty()  // ✅ 加上 emailError
                         )
-                        if (newEmail.isNotEmpty()) {
+
+// ✅ 显示验证状态或错误
+                        if (newEmail.isNotEmpty() || emailError.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    if (isEmailValid && isNewEmailDifferent) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                                    if (emailError.isNotEmpty()) Icons.Default.Cancel
+                                    else if (isEmailValid && isNewEmailDifferent) Icons.Default.CheckCircle
+                                    else Icons.Default.Cancel,
                                     null,
-                                    tint = if (isEmailValid && isNewEmailDifferent) SuccessGreen else ErrorRed,
+                                    tint = if (emailError.isNotEmpty()) ErrorRed
+                                    else if (isEmailValid && isNewEmailDifferent) SuccessGreen
+                                    else ErrorRed,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     when {
+                                        emailError.isNotEmpty() -> emailError  // ✅ 显示 emailError
                                         !isEmailValid -> "Invalid email"
                                         !isNewEmailDifferent -> "Must be different"
                                         else -> "Valid"
                                     },
                                     fontSize = 13.sp,
-                                    color = if (isEmailValid && isNewEmailDifferent) SuccessGreen else ErrorRed
+                                    color = if (emailError.isNotEmpty()) ErrorRed
+                                    else if (isEmailValid && isNewEmailDifferent) SuccessGreen
+                                    else ErrorRed
                                 )
                             }
                         }
@@ -213,7 +226,15 @@ fun ChangeEmailPage(navController: NavController) {
                                 password.isEmpty() -> passwordError = "Password required"
                                 else -> {
                                     isLoading = true
+                                    emailError = ""
                                     try {
+                                        val methods = auth.fetchSignInMethodsForEmail(newEmail).await()
+                                        if (methods.signInMethods?.isNotEmpty() == true) {
+                                            isLoading = false
+                                            emailError = "Email already in use"
+                                            return@launch
+                                        }
+
                                         val cred = EmailAuthProvider.getCredential(currentUser?.email ?: "", password)
                                         currentUser?.reauthenticate(cred)?.await()
                                         Log.d("ChangeEmail", "✅ Re-authenticated")
@@ -230,13 +251,17 @@ fun ChangeEmailPage(navController: NavController) {
 
                                         isLoading = false
                                         verificationSent = true
+
                                     } catch (e: Exception) {
                                         isLoading = false
                                         Log.e("ChangeEmail", "Error: ${e.message}")
                                         when {
-                                            e.message?.contains("password is invalid") == true -> passwordError = "Incorrect password"
-                                            e.message?.contains("email-already-in-use") == true -> snackbarHostState.showSnackbar("Email already in use")
-                                            else -> snackbarHostState.showSnackbar("Error: ${e.message}")
+                                            e.message?.contains("password is invalid") == true ->
+                                                passwordError = "Incorrect password"
+                                            e.message?.contains("email-already-in-use") == true ->
+                                                emailError = "Email already in use"
+                                            else ->
+                                                snackbarHostState.showSnackbar("Error: ${e.message}")
                                         }
                                     }
                                 }

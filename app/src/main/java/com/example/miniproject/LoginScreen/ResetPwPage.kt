@@ -1,5 +1,6 @@
 package com.example.miniproject.LoginScreen
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -145,48 +146,84 @@ fun ResetPwPage(navController: NavController) {
 
                 Button(
                     onClick = {
+                        val cleanedEmail = email.trim()
+
                         when {
-                            email.isEmpty() -> {
+                            cleanedEmail.isEmpty() -> {
                                 invalidEmail = "Please enter a valid email address"
                                 return@Button
                             }
-                            !email.contains("@") || !email.contains(".") -> {
+                            !cleanedEmail.contains("@") || !cleanedEmail.contains(".") -> {
                                 invalidEmail = "Please enter a valid email address"
                                 return@Button
                             }
                         }
 
                         isLoading = true
-                        auth.fetchSignInMethodsForEmail(email)
-                            .addOnSuccessListener { result ->
-                                if (result.signInMethods.isNullOrEmpty()) {
-                                    isLoading = false
-                                    invalidEmail = "No account found with this email"
-                                } else {
-                                    auth.sendPasswordResetEmail(email)
-                                        .addOnSuccessListener {
-                                            isLoading = false
-                                            emailSent = true
-                                            countdown = 60
-                                            canResend = false
-                                        }
-                                        .addOnFailureListener { exception ->
-                                            isLoading = false
-                                            Toast.makeText(
-                                                context,
-                                                "Failed to send reset email: ${exception.message}",
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                        }
-                                }
+
+                        android.util.Log.d("ResetPassword", "Starting password reset for: $cleanedEmail")
+
+                        val task = auth.fetchSignInMethodsForEmail(cleanedEmail)
+
+                        android.util.Log.d("ResetPassword", "Task created: $task")
+                        android.util.Log.d("ResetPassword", "Task isComplete: ${task.isComplete}")
+                        android.util.Log.d("ResetPassword", "Task isSuccessful: ${task.isSuccessful}")
+
+                        task.addOnSuccessListener { result ->
+                            android.util.Log.d("ResetPassword", "✅ SUCCESS CALLBACK TRIGGERED")
+                            android.util.Log.d("ResetPassword", "Result: $result")
+                            android.util.Log.d("ResetPassword", "Sign in methods: ${result.signInMethods}")
+                            android.util.Log.d("ResetPassword", "Is null: ${result.signInMethods == null}")
+                            android.util.Log.d("ResetPassword", "Is empty: ${result.signInMethods?.isEmpty()}")
+
+                            if (result.signInMethods.isNullOrEmpty()) {
+                                isLoading = false
+                                invalidEmail = "No account found with this email"
+                                Toast.makeText(context, "No account found", Toast.LENGTH_SHORT).show()
+                            } else {
+                                android.util.Log.d("ResetPassword", "Sending reset email...")
+                                auth.sendPasswordResetEmail(cleanedEmail)
+                                    .addOnSuccessListener {
+                                        android.util.Log.d("ResetPassword", "Reset email sent successfully")
+                                        isLoading = false
+                                        emailSent = true
+                                        countdown = 60
+                                        canResend = false
+                                    }
+                                    .addOnFailureListener { exception ->
+                                        android.util.Log.e("ResetPassword", "Failed to send email", exception)
+                                        isLoading = false
+                                        Toast.makeText(
+                                            context,
+                                            "Failed to send reset email: ${exception.message}",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
                             }
+                        }
                             .addOnFailureListener { exception ->
+                                android.util.Log.e("ResetPassword", "❌ FAILURE CALLBACK TRIGGERED")
+                                android.util.Log.e("ResetPassword", "Exception: ${exception.javaClass.simpleName}")
+                                android.util.Log.e("ResetPassword", "Message: ${exception.message}")
+                                android.util.Log.e("ResetPassword", "Stacktrace:", exception)
+
                                 isLoading = false
                                 Toast.makeText(
                                     context,
                                     "Error checking email: ${exception.message}",
                                     Toast.LENGTH_LONG
                                 ).show()
+                            }
+                            .addOnCompleteListener { completedTask ->
+                                android.util.Log.d("ResetPassword", "⭕ COMPLETE CALLBACK TRIGGERED")
+                                android.util.Log.d("ResetPassword", "Task isSuccessful: ${completedTask.isSuccessful}")
+                                android.util.Log.d("ResetPassword", "Task isCanceled: ${completedTask.isCanceled}")
+                                android.util.Log.d("ResetPassword", "Task isComplete: ${completedTask.isComplete}")
+                                android.util.Log.d("ResetPassword", "Task exception: ${completedTask.exception}")
+
+                                if (!completedTask.isSuccessful && completedTask.exception != null) {
+                                    android.util.Log.e("ResetPassword", "Task failed with:", completedTask.exception)
+                                }
                             }
                     },
                     modifier = Modifier
@@ -299,6 +336,8 @@ fun ResetPwPage(navController: NavController) {
                             isLoading = true
                             auth.fetchSignInMethodsForEmail(email)
                                 .addOnSuccessListener { result ->
+                                    Log.d("ResetPassword", "Sign in methods: ${result.signInMethods}")
+                                    Log.d("ResetPassword", "Is empty: ${result.signInMethods.isNullOrEmpty()}")
                                     if (result.signInMethods.isNullOrEmpty()) {
                                         isLoading = false
                                         invalidEmail = "No account found with this email"

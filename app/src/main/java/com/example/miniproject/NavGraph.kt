@@ -44,6 +44,8 @@ import com.example.miniproject.LoginScreen.ResetPwPage
 import com.example.miniproject.Payment.OnlinePage
 import com.example.miniproject.Payment.PaymentOption
 import com.example.miniproject.Payment.PaymentSuccess
+import com.example.miniproject.Payment.TngPage
+import com.example.miniproject.Payment.TopUpPage
 import com.example.miniproject.Payment.WalletPage
 import com.example.miniproject.SignUpScreen.SignUpEmailPage
 import com.example.miniproject.SignUpScreen.SignUpProfilePage
