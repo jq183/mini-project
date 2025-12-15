@@ -70,7 +70,6 @@ fun ProjectDetailPage(
 
     Scaffold(
         topBar = {
-            // 使用 CenterAlignedTopAppBar 确保标题居中
             CenterAlignedTopAppBar(
                 title = { Text(text = "Project Details") },
                 navigationIcon = {
@@ -82,7 +81,6 @@ fun ProjectDetailPage(
             )
         },
         bottomBar = {
-            // 底部捐赠按钮 (根据截图样式)
             if (project != null) {
                 Row(
                     modifier = Modifier
@@ -98,14 +96,14 @@ fun ProjectDetailPage(
                             .height(50.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
                         shape = RoundedCornerShape(12.dp),
-                        enabled = !project!!.isComplete // 项目完成后禁用
+                        enabled = !project!!.isComplete
                     ) {
                         Text("Donate Now", fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
         }
-    ) { paddingValues ->
+      ) { paddingValues ->
         when {
             isLoading -> {
                 Box(

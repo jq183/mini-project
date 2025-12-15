@@ -7,6 +7,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
@@ -166,6 +167,35 @@ class ProjectRepository {
                 }
             }
             .addOnFailureListener(onError)
+    }
+
+    fun checkAndUpdateExpiredProjects() {
+        val db = FirebaseFirestore.getInstance()
+        val today = Date()
+
+        db.collection("projects")
+            .whereEqualTo("status", "active")
+            .get()
+            .addOnSuccessListener { documents ->
+                documents.forEach { doc ->
+                    val project = doc.toObject(Project::class.java)
+                    val createdAt = project.createdAt?.toDate() ?: return@forEach
+
+                    val expiryDate = Calendar.getInstance().apply {
+                        time = createdAt
+                        add(Calendar.DAY_OF_YEAR, project.daysLeft)
+                    }.time
+
+                    if (today.after(expiryDate)) {
+                        doc.reference.update(
+                            mapOf(
+                                "status" to "expired",
+                                "daysLeft" to 0
+                            )
+                        )
+                    }
+                }
+            }
     }
 
     // Admin Functions with Action Logging
