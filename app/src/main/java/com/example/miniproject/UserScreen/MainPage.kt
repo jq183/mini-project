@@ -46,6 +46,7 @@ import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.Random
 
 data class Project(
     val id: String = "",
@@ -65,7 +66,6 @@ data class Project(
     val isWarning: Boolean = false,
     val isComplete: Boolean = false
 )
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,7 +96,6 @@ fun MainPage(navController: NavController) {
     var currentPage by remember { mutableStateOf(1) }
     val itemsPerPage = 10
 
-
     LaunchedEffect(listState) {
         var previousIndex = listState.firstVisibleItemIndex
         var previousScrollOffset = listState.firstVisibleItemScrollOffset
@@ -117,7 +116,7 @@ fun MainPage(navController: NavController) {
         }
     }
     LaunchedEffect(Unit) {
-
+        repository.checkAndUpdateExpiredProjects()
         repository.getAllProjects(
             onSuccess = { proj ->
                 projects = proj
@@ -130,7 +129,7 @@ fun MainPage(navController: NavController) {
         )
     }
     val filteredProjects = remember(selectedCategory, selectedSort, projects, searchQuery) {
-        var filtered = projects
+        var filtered = projects .filter { it.status != "expired" && it.daysLeft > 0 }
 
         if (searchQuery.isNotEmpty()) {
             filtered = filtered.filter { project ->
@@ -729,7 +728,12 @@ fun ProjectCard(
                             )
                         }
 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .padding(start = 8.dp)
+                        ) {
                             HighlightSearchText(
                                 text = project.creatorName,
                                 highlight = searchQuery,
@@ -743,8 +747,9 @@ fun ProjectCard(
                                     background = WarningOrange.copy(alpha = 0.3f),
                                     fontWeight = FontWeight.Bold
                                 ),
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
                             )
                             Text(
                                 text = " • ",
@@ -755,7 +760,9 @@ fun ProjectCard(
                                 text = project.category,
                                 fontSize = 13.sp,
                                 color = PrimaryBlue,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -820,7 +827,6 @@ fun ProjectCard(
         }
     }
 }
-
 @Composable
 fun HighlightSearchText(
     text: String,
@@ -837,14 +843,16 @@ fun HighlightSearchText(
         background = PrimaryBlue.copy(alpha = 0.2f)
     ),
     maxLines: Int = Int.MAX_VALUE,
-    overflow: TextOverflow = TextOverflow.Clip
+    overflow: TextOverflow = TextOverflow.Clip,
+    modifier: Modifier = Modifier
 ) {
     if (highlight.isEmpty()) {
         Text(
             text = text,
             style = normalStyle,
             maxLines = maxLines,
-            overflow = overflow
+            overflow = overflow,
+            modifier = modifier
         )
         return
     }
@@ -885,7 +893,8 @@ fun HighlightSearchText(
         text = annotatedString,
         style = normalStyle,
         maxLines = maxLines,
-        overflow = overflow
+        overflow = overflow,
+        modifier = modifier
     )
 }
 

@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
@@ -40,6 +42,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
@@ -237,6 +241,14 @@ fun LoginPage(navController: NavController) {
             shape = RoundedCornerShape(8.dp),
             enabled = !isLoading,
             isError = emailError.isNotEmpty(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Email,
+                imeAction = ImeAction.Next
+            ),
+            keyboardActions = KeyboardActions(
+                onNext = { }
+            ),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = PrimaryBlue,
                 unfocusedBorderColor = BorderGray,
@@ -284,6 +296,91 @@ fun LoginPage(navController: NavController) {
             shape = RoundedCornerShape(8.dp),
             enabled = !isLoading,
             isError = pwError.isNotEmpty(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                        emailError = ""
+                        pwError = ""
+                        var hasError = false
+
+                        if (email.isEmpty()) {
+                            emailError = "Email is required"
+                            hasError = true
+                        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                            emailError = "Invalid email format"
+                            hasError = true
+                        }
+
+                        if (!hasError) {
+                            isLoading = true
+
+                            database.child("users")
+                                .orderByChild("email")
+                                .equalTo(email)
+                                .get()
+                                .addOnSuccessListener { snapshot ->
+                                    if (snapshot.exists()) {
+                                        val userData = snapshot.children.firstOrNull()?.value as? Map<*, *>
+                                        val userId = userData?.get("userId") as? String
+                                        val hasPassword = userData?.get("hasPassword") as? Boolean ?: false
+                                        val isGoogleAccount = userData?.get("isGoogleAccount") as? Boolean ?: false
+
+                                        if (userId != null) {
+                                            if (password.isEmpty()) {
+                                                if (isGoogleAccount && !hasPassword) {
+                                                    isLoading = false
+                                                    showGoogleAccountDialog = true
+                                                } else {
+                                                    isLoading = false
+                                                    pwError = "Password is required"
+                                                }
+                                            } else {
+                                                if (isGoogleAccount && !hasPassword) {
+                                                    isLoading = false
+                                                    showGoogleAccountDialog = true
+                                                } else {
+                                                    auth.signInWithEmailAndPassword(email, password)
+                                                        .addOnCompleteListener { task ->
+                                                            isLoading = false
+                                                            if (task.isSuccessful) {
+                                                                navController.navigate("mainPage")
+                                                            } else {
+                                                                val exception = task.exception
+                                                                when {
+                                                                    exception?.message?.contains("password", ignoreCase = true) == true -> {
+                                                                        pwError = "Incorrect password"
+                                                                    }
+                                                                    exception?.message?.contains("user", ignoreCase = true) == true -> {
+                                                                        emailError = "Account not found"
+                                                                    }
+                                                                    else -> {
+                                                                        pwError = "Invalid email or password"
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                }
+                                            }
+                                        } else {
+                                            isLoading = false
+                                            emailError = "Account not found"
+                                        }
+                                    } else {
+                                        isLoading = false
+                                        emailError = "Account not found"
+                                    }
+                                }
+                                .addOnFailureListener {
+                                    isLoading = false
+                                    Toast.makeText(context, "Failed to check account", Toast.LENGTH_SHORT).show()
+                                }
+                        }
+                    }
+            ),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = PrimaryBlue,
                 unfocusedBorderColor = BorderGray,
@@ -598,8 +695,8 @@ fun LoginPage(navController: NavController) {
             )
             TextButton(
                 onClick = {
-                    navController.navigate("signUp")
-                },
+                    navController.navigate("signUpEmail")
+                          },
                 colors = ButtonDefaults.textButtonColors(
                     contentColor = PrimaryBlue
                 ),

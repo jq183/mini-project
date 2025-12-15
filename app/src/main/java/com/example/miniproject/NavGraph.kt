@@ -41,7 +41,10 @@ import com.example.miniproject.AdminScreen.AdminProjectDetail
 import com.example.miniproject.AdminScreen.AdminReportDetailPage
 import com.example.miniproject.AdminScreen.AdminReportsPage
 import com.example.miniproject.LoginScreen.ResetPwPage
-import com.example.miniproject.LoginScreen.SignUpPage
+import com.example.miniproject.Payment.TngPage
+import com.example.miniproject.Payment.TopUpPage
+import com.example.miniproject.SignUpScreen.SignUpEmailPage
+import com.example.miniproject.SignUpScreen.SignUpProfilePage
 import com.example.miniproject.Payment.OnlinePage
 import com.example.miniproject.Payment.PaymentSuccess
 import com.example.miniproject.Payment.TngPage
@@ -80,11 +83,11 @@ fun AppNavigation() {
                 navController
             )
         }
-        composable("signUp") {
-            SignUpPage(
-                onBackToLogin = { navController.popBackStack() },
-                navController
-            )
+        composable("signUpEmail") { SignUpEmailPage(navController) }
+        composable("signUpProfile/{email}/{isGoogleSignUp}") { backStackEntry ->
+            val email = backStackEntry.arguments?.getString("email") ?: ""
+            val isGoogleSignUp = backStackEntry.arguments?.getString("isGoogleSignUp")?.toBoolean() ?: false
+            SignUpProfilePage(navController, email, isGoogleSignUp)
         }
 
         composable("mainPage") {
@@ -138,9 +141,6 @@ fun AppNavigation() {
         }
         composable ("createProject"){
             CreateProjectPage(navController)
-        }
-        composable ("editProfile"){
-            //EditProfilePage(navController)
         }
 
         composable ("changePw"){

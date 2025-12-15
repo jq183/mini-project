@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,6 +46,8 @@ fun MyProjectsPage(navController: NavController) {
 
     var myProjects by remember { mutableStateOf<List<Project>>(emptyList()) }
     var backedProjects by remember { mutableStateOf<List<Project>>(emptyList()) }
+    var donationAmounts by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
+
 
     val db = FirebaseFirestore.getInstance()
 
@@ -108,17 +111,27 @@ fun MyProjectsPage(navController: NavController) {
                 android.util.Log.d("MyProjects", "Final myProjects count: ${myProjects.size}")
 
             } else {
-                val backingsSnapshot = db.collection("backings")
+                val donationsSnapshot = db.collection("donations")
                     .whereEqualTo("userId", currentUserId)
                     .get()
                     .await()
 
-                android.util.Log.d("MyProjects", "Backings found: ${backingsSnapshot.documents.size}")
+                android.util.Log.d("MyProjects", "Donations found: ${donationsSnapshot.documents.size}")
 
-                val projectIds = backingsSnapshot.documents.mapNotNull {
-                    it.getString("projectId")
-                }.distinct()
+                // 创建一个 Map 来存储每个项目的总捐赠金额
+                val tempDonationAmounts = mutableMapOf<String, Double>()
 
+                donationsSnapshot.documents.forEach { doc ->
+                    val projectId = doc.getString("projectId")
+                    val amount = doc.getLong("amount")?.toDouble() ?: 0.0
+
+                    if (projectId != null) {
+                        // 如果用户对同一个项目多次捐赠，累加金额
+                        tempDonationAmounts[projectId] = (tempDonationAmounts[projectId] ?: 0.0) + amount
+                    }
+                }
+
+                val projectIds = tempDonationAmounts.keys.toList()
                 android.util.Log.d("MyProjects", "Unique project IDs: ${projectIds.size}")
 
                 if (projectIds.isNotEmpty()) {
@@ -152,16 +165,17 @@ fun MyProjectsPage(navController: NavController) {
                         allProjects.addAll(projects)
                     }
                     backedProjects = allProjects
+                    donationAmounts = tempDonationAmounts  // 保存捐赠金额
                     android.util.Log.d("MyProjects", "Final backed projects count: ${backedProjects.size}")
                 } else {
                     backedProjects = emptyList()
+                    donationAmounts = emptyMap()
                 }
             }
         } catch (e: Exception) {
             android.util.Log.e("MyProjects", "Error loading projects: ${e.message}", e)
             e.printStackTrace()
             scope.launch {
-                snackbarHostState.showSnackbar("Failed to load projects: ${e.message}")
             }
         }
         isLoading = false
@@ -201,6 +215,9 @@ fun MyProjectsPage(navController: NavController) {
                     contentDescription = "Create Project"
                 )
             }
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
         }
     ) { paddingValues ->
         Column(
@@ -300,12 +317,126 @@ fun MyProjectsPage(navController: NavController) {
                             onAction = { navController.navigate("mainPage") }
                         )
                     } else {
+                        var sortOption by remember { mutableStateOf(0) }
+                        var sortDescending by remember { mutableStateOf(true) }
+                        var expanded by remember { mutableStateOf(false) }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box {
+                                TextButton(onClick = { expanded = true }) {
+                                    Icon(Icons.Default.Sort, contentDescription = null, tint = PrimaryBlue)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = when(sortOption) {
+                                            0 -> "My Donation"
+                                            1 -> "Progress"
+                                            2 -> "Days Left"
+                                            else -> "Sort"
+                                        },
+                                        color = PrimaryBlue
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false },
+                                    modifier = Modifier.background(BackgroundWhite)
+                                ) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                "My Donation",
+                                                fontSize = 14.sp,
+                                                fontWeight = if (sortOption == 0) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (sortOption == 0) PrimaryBlue else TextPrimary
+                                            )
+                                        },
+                                        onClick = { sortOption = 0; expanded = false },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.VolunteerActivism,
+                                                contentDescription = null,
+                                                tint = if (sortOption == 0) PrimaryBlue else TextSecondary
+                                            )
+                                        }
+                                    )
+                                    HorizontalDivider(color = BorderGray)
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                "Progress",
+                                                fontSize = 14.sp,
+                                                fontWeight = if (sortOption == 1) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (sortOption == 1) PrimaryBlue else TextPrimary
+                                            )
+                                        },
+                                        onClick = { sortOption = 1; expanded = false },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.TrendingUp,
+                                                contentDescription = null,
+                                                tint = if (sortOption == 1) PrimaryBlue else TextSecondary
+                                            )
+                                        }
+                                    )
+                                    HorizontalDivider(color = BorderGray)
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                "Days Left",
+                                                fontSize = 14.sp,
+                                                fontWeight = if (sortOption == 2) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (sortOption == 2) PrimaryBlue else TextPrimary
+                                            )
+                                        },
+                                        onClick = { sortOption = 2; expanded = false },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.Schedule,
+                                                contentDescription = null,
+                                                tint = if (sortOption == 2) PrimaryBlue else TextSecondary
+                                            )
+                                        }
+                                    )
+                                }
+                            }  // Box 结束
+
+                            IconButton(onClick = { sortDescending = !sortDescending }) {
+                                Icon(
+                                    imageVector = if (sortDescending) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                    contentDescription = "Toggle sort direction",
+                                    tint = PrimaryBlue
+                                )
+                            }
+                        }
+
+// 排序逻辑
+                        val sortedProjects = when(sortOption) {
+                            0 -> if (sortDescending)
+                                backedProjects.sortedByDescending { donationAmounts[it.id] ?: 0.0 }
+                            else backedProjects.sortedBy { donationAmounts[it.id] ?: 0.0 }
+                            1 -> if (sortDescending)
+                                backedProjects.sortedByDescending { if (it.goalAmount > 0) it.currentAmount / it.goalAmount else 0.0 }
+                            else backedProjects.sortedBy { if (it.goalAmount > 0) it.currentAmount / it.goalAmount else 0.0 }
+                            2 -> if (sortDescending)
+                                backedProjects.sortedByDescending { it.daysLeft }
+                            else backedProjects.sortedBy { it.daysLeft }
+                            else -> backedProjects
+                        }
+
                         LazyColumn(
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(backedProjects) { project ->
+                            items(sortedProjects) { project ->
                                 BackedProjectCard(
                                     project = project,
+                                    donatedAmount = donationAmounts[project.id] ?: 0.0,
                                     onClick = {
                                         navController.navigate("projectDetail/${project.id}")
                                     }
@@ -343,7 +474,26 @@ fun MyProjectsPage(navController: NavController) {
                 Button(
                     onClick = {
                         showDeleteDialog = false
+                        val projectId = projectToDelete?.id
+                        val projectTitle = projectToDelete?.title
                         projectToDelete = null
+
+                        scope.launch {
+                            try {
+                                if (projectId != null) {
+                                    db.collection("projects")
+                                        .document(projectId)
+                                        .delete()
+                                        .await()
+
+                                    myProjects = myProjects.filter { it.id != projectId }
+
+                                    snackbarHostState.showSnackbar("Project deleted successfully")
+                                }
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("Failed to delete: ${e.message}")
+                            }
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = ErrorRed
@@ -658,6 +808,7 @@ fun MyProjectCard(
 @Composable
 fun BackedProjectCard(
     project: Project,
+    donatedAmount: Double,
     onClick: () -> Unit
 ) {
     Card(
@@ -802,10 +953,12 @@ fun BackedProjectCard(
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            "RM 100",
+                            "RM ${String.format("%.0f", donatedAmount)}",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TextSecondary
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -832,11 +985,17 @@ fun BackedProjectCard(
                         )
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
                         Text(
                             text = project.creatorName,
                             fontSize = 13.sp,
-                            color = TextSecondary
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
                         Text(
                             text = " • ",
@@ -847,7 +1006,9 @@ fun BackedProjectCard(
                             text = project.category,
                             fontSize = 13.sp,
                             color = PrimaryBlue,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -858,7 +1019,7 @@ fun BackedProjectCard(
 
 @Composable
 fun EmptyStateView(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     title: String,
     message: String,
     actionText: String,
