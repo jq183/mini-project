@@ -48,6 +48,7 @@ fun CreateProjectPage(
     var category by remember { mutableStateOf("") }
     var goalAmount by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
+    var dueDate by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -163,13 +164,23 @@ fun CreateProjectPage(
                 modifier = Modifier.fillMaxWidth()
             )
 
+
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = dueDate,
+                onValueChange = { dueDate = it },
+                label = { Text("Target Due Date (e.g., 2026-06-30)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
             Spacer(Modifier.height(16.dp))
 
             // SUBMIT BUTTON
             Button(
                 onClick = {
                     if (title.isEmpty() || description.isEmpty() || category.isEmpty() ||
-                        goalAmount.toDoubleOrNull() == null || imageUri == null
+                        goalAmount.toDoubleOrNull() == null || imageUri == null || dueDate.isEmpty()
                     ) {
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("Please fill all fields and select an image.", withDismissAction = true)
@@ -185,7 +196,8 @@ fun CreateProjectPage(
                         category = category,
                         goalAmount = goalAmount.toDouble(),
                         creatorId = currentUserId,
-                        creatorName = currentUserName
+                        creatorName = currentUserName,
+                        dueDate = dueDate
                     )
 
                     repository.uploadImageAndCreateProject(

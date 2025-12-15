@@ -48,18 +48,18 @@ class ProjectRepository {
         val projectId = generateProjectId()
 
         val data = hashMapOf(
-            "Title" to project.title,
-            "Description" to project.description,
             "Category" to project.category,
-            "GoalAmount" to project.goalAmount,
             "CurrentAmount" to 0.0,
-            "Backers" to 0,
-            "CreatorId" to project.creatorId,
-            "CreatorName" to project.creatorName,
-            "DaysLeft" to 30,
+            "Description" to project.description,
             "Status" to "active",
-            "ImageUrl" to project.imageUrl,
-            "CreatedAt" to Timestamp.now(),
+            "Target_Amount" to project.goalAmount,
+            "Title" to project.title,
+            "User_ID" to project.creatorId,
+            "backers" to 0,
+            "createdAt" to Timestamp.now(),
+            "creatorName" to project.creatorName,
+            "dueDate" to project.dueDate,
+            "imageUrl" to project.imageUrl,
             "isOfficial" to false,
             "isWarning" to false,
             "isComplete" to false
@@ -91,6 +91,27 @@ class ProjectRepository {
             .addOnFailureListener { onError(it) }
     }
 
+    private fun calculateDaysLeft(dueDateString: String): Int {
+        return try {
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val dueDate = dateFormat.parse(dueDateString)!!
+
+            val today = Date()
+
+            // 计算时间差 (毫秒)
+            val diff = dueDate.time - today.time
+
+            // 转换为天数
+            val days = (diff / (1000 * 60 * 60 * 24)).toInt()
+
+            // 如果项目已经过期，返回 0
+            if (days < 0) 0 else days
+
+        } catch (e: Exception) {
+            0
+        }
+    }
+
     fun getAllProjects(
         onSuccess: (List<Project>) -> Unit,
         onError: (Exception) -> Unit
@@ -102,6 +123,16 @@ class ProjectRepository {
             .addOnSuccessListener { snapshot ->
                 val projects = snapshot.documents.mapNotNull { doc ->
                     try {
+
+                        val dueDateString = doc.getString("dueDate") ?: ""
+
+                        //cal dayleft
+                        val remainingDays = if (dueDateString.isNotEmpty()) {
+                            calculateDaysLeft(dueDateString)
+                        } else {
+                            -1
+                        }
+
                         Project(
                             id = doc.id,
                             title = doc.getString("Title") ?: "",
@@ -111,10 +142,11 @@ class ProjectRepository {
                             currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
                             goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
                             backers = doc.getLong("backers")?.toInt() ?: 0,
-                            daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
+                            daysLeft = remainingDays,
                             imageUrl = doc.getString("imageUrl") ?: "",
                             status = doc.getString("Status") ?: "active",
                             createdAt = doc.getTimestamp("createdAt"),
+                            dueDate = dueDateString,
                             isOfficial = doc.getBoolean("isOfficial") ?: false,
                             isWarning = doc.getBoolean("isWarning") ?: false,
                             isComplete = doc.getBoolean("isComplete") ?: false
@@ -140,6 +172,15 @@ class ProjectRepository {
             .addOnSuccessListener { doc ->
                 if (doc.exists()) {
                     try {
+
+                        val dueDateString = doc.getString("dueDate") ?: ""
+
+                        val remainingDays = if (dueDateString.isNotEmpty()) {
+                            calculateDaysLeft(dueDateString)
+                        } else {
+                            -1
+                        }
+
                         val project = Project(
                             id = doc.id,
                             title = doc.getString("Title") ?: "",
@@ -149,10 +190,11 @@ class ProjectRepository {
                             currentAmount = doc.getDouble("Current_Amount") ?: 0.0,
                             goalAmount = doc.getDouble("Target_Amount") ?: 0.0,
                             backers = doc.getLong("backers")?.toInt() ?: 0,
-                            daysLeft = doc.getLong("daysLeft")?.toInt() ?: 0,
+                            daysLeft = remainingDays,
                             imageUrl = doc.getString("imageUrl") ?: "",
                             status = doc.getString("Status") ?: "active",
                             createdAt = doc.getTimestamp("createdAt"),
+                            dueDate = dueDateString,
                             isOfficial = doc.getBoolean("isOfficial") ?: false,
                             isWarning = doc.getBoolean("isWarning") ?: false,
                             isComplete = doc.getBoolean("isComplete") ?: false

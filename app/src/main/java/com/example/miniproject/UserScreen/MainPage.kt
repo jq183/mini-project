@@ -49,6 +49,7 @@ data class Project(
     val imageUrl: String = "",
     val status: String = "active",
     val createdAt: Timestamp? = null,
+    val dueDate: String = "",
     val isOfficial: Boolean = false,
     val isWarning: Boolean = false,
     val isComplete: Boolean = false
