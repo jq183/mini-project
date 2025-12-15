@@ -2,16 +2,14 @@ package com.example.miniproject.repository
 
 import android.net.Uri
 import com.example.miniproject.UserScreen.Project
-import java.text.SimpleDateFormat
-import java.util.*
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
-
 
 
 class ProjectRepository {
