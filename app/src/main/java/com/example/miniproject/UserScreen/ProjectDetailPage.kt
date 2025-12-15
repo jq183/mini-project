@@ -1,5 +1,6 @@
 package com.example.miniproject.UserScreen
 
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,8 +27,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.example.miniproject.repository.ProjectRepository
 import com.example.miniproject.ui.theme.* // 假设您的主题颜色在这里
+import com.google.firebase.Timestamp
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -77,6 +80,22 @@ fun ProjectDetailPage(
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        navController.navigate(
+                            "projectAnalytics/" +
+                                    "${project?.id}/" +
+                                    "${Uri.encode(project?.title)}/" +
+                                    "${project?.currentAmount}/" +
+                                    "${project?.goalAmount}/" +
+                                    "${project?.backers}/" +
+                                    "${project?.createdAt?.seconds ?: 0}"
+                        )
+                    }) {
+                        Icon(Icons.Default.BarChart, contentDescription = "Analytics")
+                    }
+
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundWhite)
             )
@@ -132,7 +151,8 @@ fun ProjectDetailPage(
                     project = project!!,
                     paddingValues = paddingValues,
                     showCertifiedTips = showCertifiedTips,
-                    onVerifiedIconClick = { showCertifiedTips = !showCertifiedTips }
+                    onVerifiedIconClick = { showCertifiedTips = !showCertifiedTips },
+                    navController = navController
                 )
             }
         }
@@ -147,9 +167,9 @@ fun ProjectDetailContent(
     project: Project,
     paddingValues: PaddingValues,
     showCertifiedTips: Boolean,
-    onVerifiedIconClick: () -> Unit
+    onVerifiedIconClick: () -> Unit,
+    navController: NavController
 ) {
-    val scrollState = rememberScrollState()
     val progress = (project.currentAmount / project.goalAmount).toFloat().coerceIn(0f, 1f)
 
     // 使用 Box 容纳所有内容，以便将 Verified 提示浮动在卡片之上
@@ -258,11 +278,22 @@ fun ProjectDetailContent(
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "${(progress * 100).toInt()}% Funded",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "${(progress * 100).toInt()}% Funded",
+                            fontSize = 12.sp,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(onClick = { navController.navigate("reportProject/${project.id}") }) {
+                            Icon(
+                                imageVector = Icons.Default.Report,
+                                contentDescription = "Report Project",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -327,7 +358,6 @@ fun ProjectDetailContent(
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Creator Icon Placeholder
                     Box(
                         modifier = Modifier
                             .size(48.dp)
@@ -346,7 +376,6 @@ fun ProjectDetailContent(
                     Spacer(modifier = Modifier.width(12.dp))
 
                     Column {
-                        // Creator Name
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = project.creatorName,
@@ -354,32 +383,13 @@ fun ProjectDetailContent(
                                 fontWeight = FontWeight.SemiBold,
                                 color = TextPrimary
                             )
-
-
-                            // 总是显示 Verified Icon，用于测试 UI 交互
-                            Spacer(modifier = Modifier.width(6.dp))
-                            //Icon(
-                            //    imageVector = Icons.Default.Verified,
-                            //    contentDescription = "Verified",
-                            //    modifier = Modifier
-                            //        .size(20.dp)
-                            //        .clickable(
-                            //            interactionSource = remember { MutableInteractionSource() },
-                            //            indication = rememberRipple(bounded = false, radius = 20.dp)
-                            //        ) {
-                            //            onVerifiedIconClick() // 切换提示状态
-                            //        },
-                            //    tint = PrimaryBlue
-                            //)
                         }
 
-                        // Category Tag
                         Text(
                             text = project.category,
                             fontSize = 13.sp,
                             color = TextSecondary
                         )
-                        }
                     }
                 }
             }
@@ -414,3 +424,4 @@ fun ProjectDetailContent(
             }
         }
     }
+}
