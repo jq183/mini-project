@@ -32,6 +32,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.miniproject.BottomNavigationBar
 import com.example.miniproject.ui.theme.*
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.storage.FirebaseStorage
@@ -648,6 +650,12 @@ fun ProfilePage(navController: NavController) {
                 Button(
                     onClick = {
                         auth.signOut()
+                        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                            .requestIdToken("125120901156-rgkr2eqhp8qs46kmhbdt41e3oso4duu5.apps.googleusercontent.com")
+                            .requestEmail()
+                            .build()
+                        val googleSignInClient = GoogleSignIn.getClient(context, gso)
+                        googleSignInClient.signOut()
                         navController.navigate("login") {
                             popUpTo(0) { inclusive = true }
                         }

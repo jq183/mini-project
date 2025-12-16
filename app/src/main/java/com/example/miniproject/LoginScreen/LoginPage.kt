@@ -83,16 +83,14 @@ fun LoginPage(navController: NavController) {
     val auth = FirebaseAuth.getInstance()
     val database = FirebaseDatabase.getInstance().reference
 
-    LaunchedEffect(navSignUp) {
-        if (navSignUp) {
-            Log.d("GoogleSignIn", "LaunchedEffect triggered - navigating to signUp")
-            try {
-                navController.navigate("signUp")
-                navSignUp = false
-                Log.d("GoogleSignIn", "Navigation executed successfully")
-            } catch (e: Exception) {
-                Log.e("GoogleSignIn", "Navigation failed in LaunchedEffect", e)
-            }
+    LaunchedEffect(Unit) {
+        Log.d("GoogleSignIn", "=== CONFIGURATION CHECK ===")
+        try {
+            val webClientId = context.getString(R.string.default_web_client_id)
+            Log.d("GoogleSignIn", "Web Client ID: $webClientId")
+            Log.d("GoogleSignIn", "Ends with .apps.googleusercontent.com: ${webClientId.endsWith(".apps.googleusercontent.com")}")
+        } catch (e: Exception) {
+            Log.e("GoogleSignIn", "❌ Error reading Web Client ID:", e)
         }
     }
 
@@ -657,16 +655,47 @@ fun LoginPage(navController: NavController) {
             )
         }
 
+        // Replace your OutlinedButton (Google Sign-In button) with this version:
+
         OutlinedButton(
             onClick = {
-                val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                    .requestIdToken(context.getString(R.string.default_web_client_id))
-                    .requestEmail()
-                    .build()
+                Log.d("GoogleSignIn", "=== BUTTON CLICKED ===")
+                Log.d("GoogleSignIn", "isLoading before: $isLoading")
 
-                val googleSignInClient = GoogleSignIn.getClient(context, gso)
-                googleSignInClient.signOut()
-                googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                try {
+                    isLoading = true
+                    Log.d("GoogleSignIn", "isLoading set to: $isLoading")
+
+                    Log.d("GoogleSignIn", "Building GoogleSignInOptions...")
+                    val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                        .requestIdToken(context.getString(R.string.default_web_client_id))
+                        .requestEmail()
+                        .build()
+                    Log.d("GoogleSignIn", "GoogleSignInOptions built successfully")
+
+                    Log.d("GoogleSignIn", "Getting GoogleSignInClient...")
+                    val googleSignInClient = GoogleSignIn.getClient(context, gso)
+                    Log.d("GoogleSignIn", "GoogleSignInClient created")
+
+                    Log.d("GoogleSignIn", "Creating sign-in intent...")
+                    val signInIntent = googleSignInClient.signInIntent
+                    Log.d("GoogleSignIn", "Sign-in intent created")
+
+                    Log.d("GoogleSignIn", "Launching sign-in intent...")
+                    googleSignInLauncher.launch(signInIntent)
+                    Log.d("GoogleSignIn", "Sign-in intent launched successfully")
+
+                } catch (e: Exception) {
+                    isLoading = false
+                    Log.e("GoogleSignIn", "ERROR in onClick:", e)
+                    Log.e("GoogleSignIn", "Error message: ${e.message}")
+                    Log.e("GoogleSignIn", "Error stack trace:", e)
+                    Toast.makeText(
+                        context,
+                        "Sign-in error: ${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -678,7 +707,10 @@ fun LoginPage(navController: NavController) {
             ),
             enabled = !isLoading
         ) {
-            Text("Sign in with Google", fontSize = 16.sp)
+            Text(
+                text = if (isLoading) "Loading..." else "Sign in with Google",
+                fontSize = 16.sp
+            )
         }
 
         Row(

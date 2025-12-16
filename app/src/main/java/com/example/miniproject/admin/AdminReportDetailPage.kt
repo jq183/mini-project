@@ -702,7 +702,7 @@ fun AdminReportDetailPage(
                                     strokeWidth = 2.dp
                                 )
                             } else {
-                                Text("Yes, Flag This Project", fontWeight = FontWeight.Bold)
+                                Text("Yes", fontWeight = FontWeight.Bold)
                             }
                         }
                     }

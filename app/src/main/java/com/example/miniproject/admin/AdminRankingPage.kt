@@ -257,18 +257,11 @@ fun AdminRankingCard(topAdmins: List<AdminStats>) {
                                 color = WarningOrange
                             )
                         }
-                        if (admin.suspended > 0) {
+                        if (admin.suspended > 0 || admin.resolved > 0) {
                             ActionStatRow(
-                                count = admin.suspended,
+                                count = admin.suspended + admin.resolved,
                                 label = "Suspended",
                                 color = ErrorRed
-                            )
-                        }
-                        if (admin.resolved > 0) {
-                            ActionStatRow(
-                                count = admin.resolved,
-                                label = "Resolved",
-                                color = InfoBlue
                             )
                         }
                         if (admin.deletions > 0) {
