@@ -323,7 +323,7 @@ fun ProfilePage(navController: NavController) {
                             icon = Icons.Default.History,
                             title = "Transaction History",
                             subtitle = "View your transactions",
-                            onClick = { }
+                            onClick = { navController.navigate("historyPage")}
                         )
 
                         HorizontalDivider(
