@@ -54,12 +54,12 @@ fun WalletPage(
     val context = LocalContext.current
 
     // --- STATE ---
-    // We store the real balance here
     var currentBalance by remember { mutableStateOf(0.00) }
     var isLoading by remember { mutableStateOf(false) }
 
     // --- LISTENER ---
-    // This automatically updates 'currentBalance' whenever Firestore changes
+    // Automatically updates 'currentBalance' whenever Firestore changes
+    // This is crucial: if they go to TopUpPage and come back, this updates automatically!
     DisposableEffect(Unit) {
         val listener = userRepo.addBalanceListener { newBalance ->
             currentBalance = newBalance
@@ -137,8 +137,9 @@ fun WalletPage(
                         )
                     } else {
                         Text(text = "Payment total:", fontSize = 14.sp, color = Color.Black)
+                        // Show Math: Balance - Amount = Remaining
                         Text(
-                            text = "RM ${String.format("%.2f", currentBalance)} - RM${String.format("%.2f", paymentAmount)} =",
+                            text = "RM ${String.format("%.2f", currentBalance)} - RM ${String.format("%.2f", paymentAmount)} =",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color.Black
@@ -147,7 +148,7 @@ fun WalletPage(
                             text = "RM ${String.format("%.2f", currentBalance - paymentAmount)}",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if(isBalanceSufficient) Color.Black else Color.Red
+                            color = Color.Black // Remaining balance is positive/zero, so black
                         )
                     }
                 }
@@ -168,9 +169,10 @@ fun WalletPage(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (!isBalanceSufficient) {
+                // Not enough money -> Show Top Up button
                 Button(
                     onClick = {
-                        // Just navigate to TopUp, listener will handle the update on return
+                        // Navigate to TopUpPage. When user returns, the Listener above updates balance.
                         navController.navigate("topUpPage/true")
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD3E6F5)),
@@ -180,6 +182,7 @@ fun WalletPage(
                     Text("Top Up Now", color = Color.Black)
                 }
             } else {
+                // Sufficient money -> Show Pay button
                 Button(
                     onClick = {
                         if (isLoading) return@Button
@@ -192,7 +195,6 @@ fun WalletPage(
                                 // Step 2: Create Donation Record
                                 val userId = auth.currentUser?.uid ?: "Anonymous"
 
-                                // FIX: Updated to match new Donation Data Class (camelCase)
                                 val newDonation = Donation(
                                     projectId = projectId,
                                     userId = userId,
@@ -206,20 +208,21 @@ fun WalletPage(
                                     donation = newDonation,
                                     onSuccess = {
                                         isLoading = false
+                                        // Navigate to Success Screen
                                         navController.navigate("paymentSuccess/$paymentAmount/WALLET") {
                                             popUpTo("projectDetail/$projectId") { inclusive = false }
                                         }
                                     },
                                     onError = {
-                                        // Donation log failed, but money was deducted.
+                                        // Critical edge case: Money deducted but log failed.
                                         isLoading = false
-                                        Toast.makeText(context, "Error creating record", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Payment processed but record failed. Contact support.", Toast.LENGTH_LONG).show()
                                     }
                                 )
                             },
                             onError = { error ->
                                 isLoading = false
-                                Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Payment Failed: $error", Toast.LENGTH_SHORT).show()
                             }
                         )
                     },
@@ -228,7 +231,7 @@ fun WalletPage(
                     enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth().height(50.dp)
                 ) {
-                    Text(if(isLoading) "Processing..." else "Pay Now", color = Color.Black)
+                    Text(if (isLoading) "Processing..." else "Pay Now", color = Color.Black)
                 }
             }
 

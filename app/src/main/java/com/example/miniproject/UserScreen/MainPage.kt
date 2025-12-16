@@ -3,27 +3,74 @@ package com.example.miniproject.UserScreen
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.LocalHospital
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-import androidx.compose.runtime.*
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ripple
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,17 +88,21 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.miniproject.BottomNavigationBar
-import com.example.miniproject.ui.theme.*
-import com.google.firebase.Timestamp
 import com.example.miniproject.repository.ProjectRepository
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.miniproject.repository.UserRepository
+import com.example.miniproject.ui.theme.BackgroundGray
+import com.example.miniproject.ui.theme.BackgroundWhite
+import com.example.miniproject.ui.theme.BorderGray
+import com.example.miniproject.ui.theme.ErrorRed
+import com.example.miniproject.ui.theme.InfoBlue
+import com.example.miniproject.ui.theme.PrimaryBlue
+import com.example.miniproject.ui.theme.SuccessGreen
+import com.example.miniproject.ui.theme.TextPrimary
+import com.example.miniproject.ui.theme.TextSecondary
+import com.example.miniproject.ui.theme.WarningOrange
+import com.google.firebase.Timestamp
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
-import java.util.Locale
-import java.util.Random
 import java.util.concurrent.TimeUnit
 
 data class Project(
@@ -105,7 +156,11 @@ fun MainPage(navController: NavController) {
     )
 
     val coroutineScope = rememberCoroutineScope()
+
+    // --- REPOSITORIES ---
     val repository = remember { ProjectRepository() }
+    val userRepo = remember { UserRepository() } // 1. Initialize User Repo
+
     val currentRoute = navController.currentBackStackEntry?.destination?.route
     val categories = listOf("All", "Technology", "Charity", "Education", "Medical", "Art", "Games")
     val sortOptions = listOf("Most funded", "Newest", "Ending soon", "Popular")
@@ -113,6 +168,7 @@ fun MainPage(navController: NavController) {
     var currentPage by remember { mutableStateOf(1) }
     val itemsPerPage = 10
 
+    // Hide Bottom Bar on Scroll Logic
     LaunchedEffect(listState) {
         var previousIndex = listState.firstVisibleItemIndex
         var previousScrollOffset = listState.firstVisibleItemScrollOffset
@@ -132,7 +188,13 @@ fun MainPage(navController: NavController) {
             previousScrollOffset = currentScrollOffset
         }
     }
+
+    // --- INITIALIZATION ---
     LaunchedEffect(Unit) {
+        // 2. Initialize Wallet on Startup
+        userRepo.initializeWallet()
+
+        // 3. Load Projects
         repository.checkAndUpdateExpiredProjects()
         repository.getAllProjects(
             onSuccess = { proj ->
@@ -145,6 +207,7 @@ fun MainPage(navController: NavController) {
             }
         )
     }
+
     val filteredProjects = remember(selectedCategory, selectedSort, projects, searchQuery) {
         var filtered = projects .filter { it.status != "expired" && it.daysLeft > 0 }
 

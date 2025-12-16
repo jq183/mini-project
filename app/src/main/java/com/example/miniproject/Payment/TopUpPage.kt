@@ -54,18 +54,21 @@ fun TopUpPage(
     navController: NavController?,
     isFromPaymentFlow: Boolean = false
 ) {
+    // Initialize Repository
     val userRepo = remember { UserRepository() }
     val context = LocalContext.current
 
+    // State Variables
     var amount by remember { mutableStateOf("10") }
     var currentBalance by remember { mutableStateOf(0.00) }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Listen to real balance for display
+    // REAL-TIME LISTENER: Updates 'currentBalance' whenever Firestore changes
     DisposableEffect(Unit) {
         val listener = userRepo.addBalanceListener { newBalance ->
             currentBalance = newBalance
         }
+        // Cleanup listener when leaving the screen
         onDispose { listener?.remove() }
     }
 
@@ -89,7 +92,7 @@ fun TopUpPage(
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
-            // Input Top Up Amount Card
+            // --- Input Card ---
             Card(
                 shape = RoundedCornerShape(16.dp),
                 elevation = CardDefaults.cardElevation(4.dp),
@@ -139,6 +142,7 @@ fun TopUpPage(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    // Quick Select Buttons
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                         listOf("50", "100", "200").forEach { valAmount ->
                             OutlinedButton(
@@ -157,7 +161,7 @@ fun TopUpPage(
             Text("Select Payment Method", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Logic to perform the Top Up
+            // --- Logic to perform the Top Up ---
             val performTopUp = {
                 val topUpValue = amount.toDoubleOrNull() ?: 0.00
                 if (topUpValue > 0) {
@@ -167,12 +171,12 @@ fun TopUpPage(
                         onSuccess = {
                             isLoading = false
                             Toast.makeText(context, "Top up successful!", Toast.LENGTH_SHORT).show()
-                            // Because we use a listener in WalletPage, simply popping back updates the UI automatically
+                            // Go back to previous screen (WalletPage or Profile)
                             navController?.popBackStack()
                         },
-                        onError = {
+                        onError = { errorMsg ->
                             isLoading = false
-                            Toast.makeText(context, "Top up failed: $it", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Top up failed: $errorMsg", Toast.LENGTH_SHORT).show()
                         }
                     )
                 } else {
@@ -180,8 +184,11 @@ fun TopUpPage(
                 }
             }
 
+            // --- Payment Buttons or Loading Spinner ---
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             } else {
                 PaymentMethodButton(
                     text = "TouchNGo E-Wallet",
