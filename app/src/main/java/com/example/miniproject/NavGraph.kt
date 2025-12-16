@@ -57,17 +57,17 @@ import com.example.miniproject.UserScreen.ProfileScreen.ChangeEmailPage
 import com.example.miniproject.UserScreen.ProfileScreen.ChangePwPage
 import com.example.miniproject.UserScreen.ProfileScreen.FAQPage
 import com.example.miniproject.UserScreen.ProfileScreen.ProfilePage
+import com.example.miniproject.UserScreen.ProjectAnalyticsPage
 import com.example.miniproject.UserScreen.ProjectDetailPage
+import com.example.miniproject.UserScreen.ReportProjectPage
 import com.example.miniproject.UserScreen.SupportPage
+import com.example.miniproject.admin.AdminActionsPage
 import com.example.miniproject.admin.AdminLogin
 import com.example.miniproject.admin.ChangePasswordScreen
 import com.example.miniproject.ui.theme.BackgroundWhite
 import com.example.miniproject.ui.theme.PrimaryBlue
 import com.example.miniproject.ui.theme.TextSecondary
 import com.google.firebase.auth.FirebaseAuth
-import com.example.miniproject.UserScreen.ProjectAnalyticsPage
-import com.example.miniproject.UserScreen.ReportProjectPage
-import com.example.miniproject.admin.AdminActionsPage
 
 @Composable
 fun AppNavigation() {
@@ -217,18 +217,34 @@ fun AppNavigation() {
             TopUpPage(navController, isFromPaymentFlow = fromPayment)
         }
 
-        composable("onlinePage/{amount}"){backStackEntry ->
-            val amount = backStackEntry.arguments?.getString("amount")?.toDoubleOrNull() ?: 10.00
-            OnlinePage(navController, paymentAmount = amount)
+        composable(
+            route = "onlinePage/{amount}/{projectId}",
+            arguments = listOf(
+                navArgument("amount") { type = NavType.StringType },
+                navArgument("projectId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val amountString = backStackEntry.arguments?.getString("amount") ?: "0.00"
+            val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            val amountDouble = amountString.toDoubleOrNull() ?: 10.00
+
+            OnlinePage(
+                navController = navController,
+                paymentAmount = amountDouble,
+                projectId = projectId
+            )
         }
 
         composable(
-            route = "paymentOption/{amount}",
-            arguments = listOf(navArgument("amount") { type = NavType.StringType })
+            route = "paymentOption/{amount}/{projectId}",
+            arguments = listOf(
+                navArgument("amount") { type = NavType.StringType }, // passed as string in url
+                navArgument("projectId") { type = NavType.StringType }
+            )
         ) { backStackEntry ->
-            val amountStr = backStackEntry.arguments?.getString("amount") ?: "10.00"
-            val amount = amountStr.toDoubleOrNull() ?: 10.00
-            PaymentOption(navController = navController, amount = amount)
+            val amt = backStackEntry.arguments?.getString("amount")?.toDoubleOrNull() ?: 0.0
+            val pId = backStackEntry.arguments?.getString("projectId") ?: ""
+            PaymentOption(navController, amt, pId)
         }
 
         composable(
@@ -254,31 +270,53 @@ fun AppNavigation() {
         }
 
         composable(
-            route = "supportPage/{projectTitle}",
+            route = "supportPage/{projectId}/{title}/{imageUrl}",
             arguments = listOf(
-                navArgument("projectTitle") { type = NavType.StringType }
-                // You can add imageUrl here later if needed
+                navArgument("projectId") { type = NavType.StringType },
+                navArgument("title") { type = NavType.StringType },
+                navArgument("imageUrl") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val title = backStackEntry.arguments?.getString("projectTitle") ?: "Unknown Project"
+            val pId = backStackEntry.arguments?.getString("projectId") ?: ""
+            val title = backStackEntry.arguments?.getString("title") ?: ""
+            val url = backStackEntry.arguments?.getString("imageUrl") ?: ""
+            SupportPage(navController, pId, title, url)
+        }
 
-            SupportPage(
+        composable(
+            route = "tngPage/{amount}/{projectId}",
+            arguments = listOf(
+                navArgument("amount") { type = NavType.StringType },
+                navArgument("projectId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val amountString = backStackEntry.arguments?.getString("amount") ?: "10.00"
+            val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+
+            TngPage(
                 navController = navController,
-                projectTitle = title,
-                projectImageUrl = "" // Pass image URL here if you add it to arguments
+                amount = amountString,
+                projectId = projectId
             )
         }
 
-        composable("tngPage/{amount}") { backStackEntry ->
-            val amount = backStackEntry.arguments?.getString("amount") ?: "10.00"
-            TngPage(amount = amount, navController = navController)
-        }
 
+        composable(
+            route = "walletPage/{amount}/{projectId}",
+            arguments = listOf(
+                navArgument("amount") { type = NavType.StringType },
+                navArgument("projectId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val amountString = backStackEntry.arguments?.getString("amount") ?: "0.00"
+            val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            val amountDouble = amountString.toDoubleOrNull() ?: 10.00
 
-        // 2. WALLET PAGE (Accepts amount)
-        composable("walletPage/{amount}") { backStackEntry ->
-            val amount = backStackEntry.arguments?.getString("amount")?.toDoubleOrNull() ?: 10.00
-            WalletPage(navController, paymentAmount = amount)
+            WalletPage(
+                navController = navController,
+                paymentAmount = amountDouble,
+                projectId = projectId
+            )
         }
 
     }

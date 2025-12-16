@@ -22,6 +22,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,6 +34,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.miniproject.repository.Donation
+import com.example.miniproject.repository.DonationRepository
+import com.example.miniproject.repository.Payments
+import com.google.firebase.auth.FirebaseAuth
 
 // ==========================================
 // WALLET PAYMENT PAGE
@@ -40,7 +47,8 @@ import androidx.navigation.compose.rememberNavController
 @Composable
 fun WalletPage(
     navController: NavController,
-    paymentAmount: Double = 10.00 // <--- CHANGED: Now accepts value here, defaults to 10.00
+    paymentAmount: Double,
+    projectId: String
 ) {
     // Logic for Balance (remains unchanged)
     val savedStateHandle = navController.currentBackStackEntry?.savedStateHandle
@@ -50,6 +58,10 @@ fun WalletPage(
     val currentBalance by newBalanceLiveData.observeAsState(initial = 0.00)
 
     val isBalanceSufficient = currentBalance >= paymentAmount
+
+    val repository = remember { DonationRepository() }
+    val auth = FirebaseAuth.getInstance()
+    var isLoading by remember { mutableStateOf(false) }
 
     // UI (Exact same as your provided code)
     Scaffold(
@@ -175,12 +187,38 @@ fun WalletPage(
             } else {
                 // Button for Pay Now (Functionless for now)
                 Button(
-                    onClick = { navController.navigate("PaymentSuccess/$paymentAmount/WALLET") },
+                    onClick = {
+                        isLoading = true
+                        val userId = auth.currentUser?.uid ?: "Anonymous"
+
+                        val newDonation = Donation(
+                            project_id = projectId,
+                            user_id = userId,
+                            amount = paymentAmount,
+                            paymentMethod = Payments.Wallet,
+                            isAnonymous = false
+                        )
+
+                        repository.createDonation(
+                            donation = newDonation,
+                            onSuccess = {
+                                isLoading = false
+                                // Note: In a real app, deduct wallet balance here too
+                                navController.navigate("paymentSuccess/$paymentAmount/WALLET") {
+                                    popUpTo("projectDetail/$projectId") { inclusive = false }
+                                }
+                            },
+                            onError = {
+                                isLoading = false
+                            }
+                        )
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD3E6F5)),
                     shape = RoundedCornerShape(12.dp),
+                    enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth().height(50.dp)
                 ) {
-                    Text("Pay Now", color = Color.Black)
+                    Text(if(isLoading) "Processing..." else "Pay Now", color = Color.Black)
                 }
             }
 
@@ -194,5 +232,5 @@ fun WalletPage(
 @Composable
 fun WalletPaymentPreview() {
     val nav = rememberNavController()
-    WalletPage(navController = nav, paymentAmount = 2.00)
+    WalletPage(navController = nav, paymentAmount = 2.00, projectId = "")
 }

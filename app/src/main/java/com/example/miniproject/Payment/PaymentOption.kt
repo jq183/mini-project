@@ -45,7 +45,8 @@ import androidx.navigation.compose.rememberNavController
 @Composable
 fun PaymentOption(
     navController: NavController,
-    amount: Double = 10.00 // Default amount, or passed from previous screen
+    amount: Double = 10.00,
+    projectId: String
 ) {
     Scaffold(
         topBar = {
@@ -112,10 +113,9 @@ fun PaymentOption(
                     // Option A: TouchNGo E-Wallet
                     PaymentMethodButton(
                         text = "TouchNGo E-Wallet",
-                        iconVector = Icons.Default.Smartphone, // Using standard icon as placeholder
+                        iconVector = Icons.Default.Smartphone,
                         onClick = {
-                            // Navigate to TnG Page passing the amount
-                            navController.navigate("tngPage/$amount")
+                            navController.navigate("tngPage/$amount/$projectId")
                         }
                     )
 
@@ -126,8 +126,7 @@ fun PaymentOption(
                         text = "Online Banking",
                         iconVector = Icons.Default.AccountBalance,
                         onClick = {
-                            // Navigate to Bank Transfer Page passing the amount
-                            navController.navigate("onlinePage/$amount")
+                            navController.navigate("onlinePage/$amount/$projectId")
                         }
                     )
 
@@ -138,8 +137,7 @@ fun PaymentOption(
                         text = "Account Wallet",
                         iconVector = Icons.Default.AccountBalanceWallet,
                         onClick = {
-                            // Navigate to Wallet Payment Page passing the amount
-                            navController.navigate("walletPage/$amount")
+                            navController.navigate("walletPage/$amount/$projectId")
                         }
                     )
                 }
@@ -194,5 +192,5 @@ fun PaymentMethodButton(
 @Preview(showBackground = true)
 @Composable
 fun PaymentOptionPreview() {
-    PaymentOption(navController = rememberNavController(), amount = 10.00)
+    PaymentOption(navController = rememberNavController(), amount = 10.00, projectId = "")
 }

@@ -42,6 +42,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.miniproject.repository.Donation
+import com.example.miniproject.repository.DonationRepository
+import com.example.miniproject.repository.Payments
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -51,12 +55,16 @@ import kotlin.random.Random
 @Composable
 fun TngPage(
     amount: String,
+    projectId: String,
     navController: NavController
 ) {
     // --- STATE ---
     var qrPayload by remember { mutableStateOf<String?>(null) }
     var status by remember { mutableStateOf(FakeTngGateway.PaymentStatus.PENDING) }
     var timeLeft by remember { mutableStateOf(300) } // 5 mins
+    val repository = remember { DonationRepository() }
+    val auth = FirebaseAuth.getInstance()
+    var isSaving by remember { mutableStateOf(false) }
 
     // 1. Load the QR Code (Simulate calling API to create order)
     LaunchedEffect(Unit) {
@@ -76,16 +84,37 @@ fun TngPage(
     // 3. POLLING: Check for payment status every 2 seconds
     LaunchedEffect(status) {
         while (status == FakeTngGateway.PaymentStatus.PENDING) {
-            delay(2000) // Wait 2 seconds
+            delay(2000)
             val newStatus = FakeTngGateway.checkPaymentStatus()
-            if (newStatus == FakeTngGateway.PaymentStatus.PAID) {
+
+            if (newStatus == FakeTngGateway.PaymentStatus.PAID && !isSaving) {
                 status = newStatus
-                // DELAY slightly so user sees "Payment Received" text before navigating
-                delay(1500)
-                navController.navigate("paymentSuccess/$amount/TnG") {
-                    // Remove TngPage from backstack so they can't go back to QR
-                    popUpTo("tngPage/$amount") { inclusive = true }
-                }
+                isSaving = true
+
+                // SAVE TO FIREBASE
+                val userId = auth.currentUser?.uid ?: "Anonymous"
+                val finalAmount = amount.toDoubleOrNull() ?: 0.0
+
+                val newDonation = Donation(
+                    project_id = projectId,
+                    user_id = userId,
+                    amount = finalAmount,
+                    paymentMethod = Payments.TnG,
+                    isAnonymous = false
+                )
+
+                repository.createDonation(
+                    donation = newDonation,
+                    onSuccess = {
+                        navController.navigate("paymentSuccess/$amount/TnG") {
+                            popUpTo("projectDetail/$projectId") { inclusive = false }
+                        }
+                    },
+                    onError = {
+                        // Handle error (Maybe show error dialog)
+                        isSaving = false
+                    }
+                )
             }
         }
     }
@@ -291,5 +320,5 @@ object FakeTngGateway {
 @Preview(showBackground = true)
 @Composable
 fun TngPreview() {
-    TngPage(amount = "10.00", navController = rememberNavController())
+    TngPage(amount = "10.00", navController = rememberNavController(), projectId = "")
 }

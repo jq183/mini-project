@@ -51,10 +51,9 @@ import androidx.navigation.compose.rememberNavController
 @Composable
 fun SupportPage(
     navController: NavController,
+    projectId: String,      // Added
     projectTitle: String,
-    // In a real app, this would be a URL string.
-    // For now we accept a String, but we will render a placeholder if it's empty/dummy.
-    projectImageUrl: String
+    projectImageUrl: String? = null
 ) {
     // State for the donation amount input
     var amount by remember { mutableStateOf("10") }
@@ -144,8 +143,8 @@ fun SupportPage(
                         Button(
                             onClick = {
                                 val finalAmount = amount.ifEmpty { "0" }
-                                // Navigate to Payment Method Page, passing the amount
-                                navController.navigate("paymentOption/$finalAmount")
+                                // Navigate to Payment Method Page, passing amount AND projectId
+                                navController.navigate("paymentOption/$finalAmount/$projectId")
                             },
                             shape = RoundedCornerShape(24.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFA8C8E6)), // Muted Blue from image
@@ -242,6 +241,7 @@ fun SupportPagePreview() {
     SupportPage(
         navController = rememberNavController(),
         projectTitle = "Smart City Initiative 2025",
-        projectImageUrl = ""
+        projectId = "",
+        projectImageUrl = null
     )
 }

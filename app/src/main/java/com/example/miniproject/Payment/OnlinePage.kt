@@ -15,7 +15,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -45,6 +44,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.miniproject.repository.Donation
+import com.example.miniproject.repository.DonationRepository
+import com.example.miniproject.repository.Payments
+import com.google.firebase.auth.FirebaseAuth
 
 // ==========================================
 // BANK TRANSFER PAGE
@@ -54,7 +57,8 @@ import androidx.navigation.compose.rememberNavController
 @Composable
 fun OnlinePage(
     navController: NavController,
-    paymentAmount: Double = 10.00 // Accepts payment amount, default is 10.00
+    paymentAmount: Double,
+    projectId: String
 ) {
     // --- STATE ---
     var selectedBank by remember { mutableStateOf("") }
@@ -67,6 +71,10 @@ fun OnlinePage(
 
     // Logic to check if the form is valid (all fields are filled)
     val isFormValid = selectedBank.isNotEmpty() && bankId.isNotEmpty() && password.isNotEmpty()
+
+    var isLoading by remember { mutableStateOf(false) } // Add loading state
+    val repository = remember { DonationRepository() }
+    val auth = FirebaseAuth.getInstance()
 
     // --- UI ---
     Scaffold(
@@ -182,21 +190,35 @@ fun OnlinePage(
             // Color changes based on enabled state.
             Button(
                 onClick = {
-                    navController.navigate("paymentSuccess/$paymentAmount/OnlinePayment")
+                    isLoading = true
+                    val userId = auth.currentUser?.uid ?: "Anonymous"
+
+                    val newDonation = Donation(
+                        project_id = projectId,
+                        user_id = userId,
+                        amount = paymentAmount,
+                        paymentMethod = Payments.OnlineBanking,
+                        isAnonymous = false
+                    )
+
+                    repository.createDonation(
+                        donation = newDonation,
+                        onSuccess = {
+                            isLoading = false
+                            navController.navigate("paymentSuccess/$paymentAmount/OnlineBanking") {
+                                popUpTo("projectDetail/$projectId") { inclusive = false } // Clear backstack
+                            }
+                        },
+                        onError = {
+                            isLoading = false
+                            // Handle error (e.g., show Toast)
+                        }
+                    )
                 },
-                enabled = isFormValid,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isFormValid) Color(0xFF1976D2) else Color(0xFFD3E6F5), // Blue if valid, light blue/grey if not
-                    contentColor = if (isFormValid) Color.White else Color.Gray,
-                    disabledContainerColor = Color(0xFFD3E6F5),
-                    disabledContentColor = Color.Gray
-                )
+                enabled = isFormValid && !isLoading, // Disable when loading
+                // ... (styling)
             ) {
-                Text("Pay Now", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(if(isLoading) "Processing..." else "Pay Now", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -207,6 +229,5 @@ fun OnlinePage(
 @Composable
 fun OnlinePagePreview() {
     val nav = rememberNavController()
-    // You can pass a different paymentAmount here to test
-    OnlinePage(navController = nav, paymentAmount = 50.25)
+    OnlinePage(navController = nav, paymentAmount = 50.25, projectId = "")
 }
