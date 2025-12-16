@@ -191,12 +191,15 @@ fun WalletPage(
                             onSuccess = {
                                 // Step 2: Create Donation Record
                                 val userId = auth.currentUser?.uid ?: "Anonymous"
+
+                                // FIX: Updated to match new Donation Data Class (camelCase)
                                 val newDonation = Donation(
-                                    project_id = projectId,
-                                    user_id = userId,
+                                    projectId = projectId,
+                                    userId = userId,
                                     amount = paymentAmount,
                                     paymentMethod = Payments.Wallet,
-                                    isAnonymous = false
+                                    isAnonymous = false,
+                                    status = "completed"
                                 )
 
                                 donationRepo.createDonation(
@@ -209,7 +212,6 @@ fun WalletPage(
                                     },
                                     onError = {
                                         // Donation log failed, but money was deducted.
-                                        // In real app, you would refund here.
                                         isLoading = false
                                         Toast.makeText(context, "Error creating record", Toast.LENGTH_SHORT).show()
                                     }

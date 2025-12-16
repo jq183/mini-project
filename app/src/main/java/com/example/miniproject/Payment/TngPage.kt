@@ -95,12 +95,14 @@ fun TngPage(
                 val userId = auth.currentUser?.uid ?: "Anonymous"
                 val finalAmount = amount.toDoubleOrNull() ?: 0.0
 
+                // FIX: Updated to match new Donation Data Class (camelCase)
                 val newDonation = Donation(
-                    project_id = projectId,
-                    user_id = userId,
+                    projectId = projectId,
+                    userId = userId,
                     amount = finalAmount,
                     paymentMethod = Payments.TnG,
-                    isAnonymous = false
+                    isAnonymous = false,
+                    status = "completed"
                 )
 
                 repository.createDonation(

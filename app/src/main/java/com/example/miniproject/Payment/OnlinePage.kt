@@ -1,6 +1,5 @@
 package com.example.miniproject.Payment
 
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -125,6 +125,7 @@ fun OnlinePage(
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .menuAnchor() // Added menuAnchor for M3 support
                         )
                         ExposedDropdownMenu(
                             expanded = expanded,
@@ -147,7 +148,7 @@ fun OnlinePage(
                     OutlinedTextField(
                         value = bankId,
                         onValueChange = { bankId = it },
-                        label = { Text("Label") },
+                        label = { Text("Bank ID") },
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
                     )
@@ -157,7 +158,7 @@ fun OnlinePage(
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text("Label") },
+                        label = { Text("Password") },
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         modifier = Modifier.fillMaxWidth()
@@ -186,19 +187,19 @@ fun OnlinePage(
             Spacer(modifier = Modifier.height(24.dp))
 
             // 3. Pay Now Button
-            // Enabled only when isFormValid is true.
-            // Color changes based on enabled state.
             Button(
                 onClick = {
                     isLoading = true
                     val userId = auth.currentUser?.uid ?: "Anonymous"
 
+                    // UPDATED: Matches new Donation Data Class (camelCase)
                     val newDonation = Donation(
-                        project_id = projectId,
-                        user_id = userId,
+                        projectId = projectId,
+                        userId = userId,
                         amount = paymentAmount,
                         paymentMethod = Payments.OnlineBanking,
-                        isAnonymous = false
+                        isAnonymous = false,
+                        status = "completed"
                     )
 
                     repository.createDonation(
@@ -206,7 +207,7 @@ fun OnlinePage(
                         onSuccess = {
                             isLoading = false
                             navController.navigate("paymentSuccess/$paymentAmount/OnlineBanking") {
-                                popUpTo("projectDetail/$projectId") { inclusive = false } // Clear backstack
+                                popUpTo("projectDetail/$projectId") { inclusive = false }
                             }
                         },
                         onError = {
@@ -215,10 +216,23 @@ fun OnlinePage(
                         }
                     )
                 },
-                enabled = isFormValid && !isLoading, // Disable when loading
-                // ... (styling)
+                enabled = isFormValid && !isLoading,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isFormValid) Color(0xFF1976D2) else Color(0xFFD3E6F5),
+                    contentColor = if (isFormValid) Color.White else Color.Gray,
+                    disabledContainerColor = Color(0xFFD3E6F5),
+                    disabledContentColor = Color.Gray
+                )
             ) {
-                Text(if(isLoading) "Processing..." else "Pay Now", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = if(isLoading) "Processing..." else "Pay Now",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
@@ -229,5 +243,5 @@ fun OnlinePage(
 @Composable
 fun OnlinePagePreview() {
     val nav = rememberNavController()
-    OnlinePage(navController = nav, paymentAmount = 50.25, projectId = "")
+    OnlinePage(navController = nav, paymentAmount = 50.25, projectId = "P123")
 }
