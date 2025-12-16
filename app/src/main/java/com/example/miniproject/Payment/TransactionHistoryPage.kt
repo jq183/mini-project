@@ -53,7 +53,7 @@ import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-
+// Data model for the UI
 data class TransactionUiModel(
     val donation: Donation,
     val projectTitle: String,
@@ -90,18 +90,19 @@ fun TransactionHistoryPage(
                     }
 
                     // 2. For each donation, fetch the Project details
-                    // We use a counter to know when all projects are loaded
                     val loadedTransactions = mutableListOf<TransactionUiModel>()
                     var processedCount = 0
 
                     donationList.forEach { donation ->
+                        // FIX: Use updated property 'projectId' (camelCase)
                         projectRepo.getProjectById(
-                            projectId = donation.project_id,
+                            projectId = donation.projectId,
                             onSuccess = { project ->
                                 synchronized(loadedTransactions) {
                                     loadedTransactions.add(
                                         TransactionUiModel(
                                             donation = donation,
+                                            // Prefer the live project title, fallback to donation snapshot if needed
                                             projectTitle = project.title,
                                             projectCategory = project.category,
                                             creatorName = project.creatorName
@@ -110,27 +111,28 @@ fun TransactionHistoryPage(
                                     processedCount++
                                     // Check if this was the last one
                                     if (processedCount == donationList.size) {
-                                        // Sort by date again (descending) just to be safe after async calls
-                                        transactions = loadedTransactions.sortedByDescending { it.donation.created_at }
+                                        // FIX: Use updated property 'donatedAt'
+                                        transactions = loadedTransactions.sortedByDescending { it.donation.donatedAt }
                                         isLoading = false
                                     }
                                 }
                             },
                             onError = {
-                                // Even if project load fails, we count it so loading finishes
-                                // Optionally show "Unknown Project"
+                                // Even if project load fails, we show the donation with the stored Title/Unknowns
                                 synchronized(loadedTransactions) {
                                     loadedTransactions.add(
                                         TransactionUiModel(
                                             donation = donation,
-                                            projectTitle = "Unknown Project",
+                                            // Fallback to the title stored in donation record if project fetch fails
+                                            projectTitle = donation.projectTitle.ifEmpty { "Unknown Project" },
                                             projectCategory = "Unknown",
                                             creatorName = "Unknown"
                                         )
                                     )
                                     processedCount++
                                     if (processedCount == donationList.size) {
-                                        transactions = loadedTransactions.sortedByDescending { it.donation.created_at }
+                                        // FIX: Use updated property 'donatedAt'
+                                        transactions = loadedTransactions.sortedByDescending { it.donation.donatedAt }
                                         isLoading = false
                                     }
                                 }
@@ -209,7 +211,9 @@ fun TransactionCard(item: TransactionUiModel) {
     // Helper formats
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-    val date = item.donation.created_at.toDate()
+
+    // FIX: Use updated property 'donatedAt'
+    val date = item.donation.donatedAt.toDate()
 
     val paymentIcon = when (item.donation.paymentMethod) {
         Payments.OnlineBanking -> Icons.Default.AccountBalance

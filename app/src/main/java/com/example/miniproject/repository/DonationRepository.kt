@@ -3,7 +3,7 @@ package com.example.miniproject.repository
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
-import java.util.UUID
+import kotlin.random.Random
 
 enum class Payments {
     OnlineBanking,
@@ -12,15 +12,17 @@ enum class Payments {
     Unset
 }
 
-// Updated Data Class to match your Schema
+// Updated Data Class to match your exact Firebase Schema
 data class Donation(
-    val donation_id: String = "",
-    val project_id: String = "",
-    val user_id: String = "", // From Auth
-    val amount: Double = 0.0,
-    val paymentMethod: Payments = Payments.Unset,
+    val id: String = "",           // Matches "id"
+    val projectId: String = "",    // Matches "projectId"
+    val projectTitle: String = "", // Matches "projectTitle"
+    val userId: String = "",       // Matches "userId"
+    val amount: Double = 0.0,      // Matches "amount"
+    val status: String = "completed", // Matches "status"
+    val paymentMethod: Payments = Payments.Unset, // Kept for logic, usually stored as string
     val isAnonymous: Boolean = false,
-    val created_at: Timestamp = Timestamp.now()
+    val donatedAt: Timestamp = Timestamp.now() // Matches "donatedAt"
 )
 
 class DonationRepository {
@@ -33,18 +35,25 @@ class DonationRepository {
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit
     ) {
-        // 1. Generate a unique Donation ID (UUID)
-        val generatedId = UUID.randomUUID().toString()
-        val finalDonation = donation.copy(donation_id = generatedId)
+        // 1. Generate ID matching format "D1765794654721_523"
+        val timestamp = System.currentTimeMillis()
+        val randomNum = Random.nextInt(100, 999)
+        val generatedId = "D${timestamp}_$randomNum"
 
+        val finalDonation = donation.copy(id = generatedId)
+
+        // 2. Map fields to match your Firebase structure exactly
         val donationMap = hashMapOf(
-            "Donation_ID" to finalDonation.donation_id,
-            "Project_ID" to finalDonation.project_id,
-            "User_ID" to finalDonation.user_id,
-            "Amount" to finalDonation.amount,
-            "Payment_method" to finalDonation.paymentMethod.name, // Store as String enum
-            "is_anonymous" to finalDonation.isAnonymous,
-            "Created_at" to finalDonation.created_at
+            "id" to finalDonation.id,
+            "projectId" to finalDonation.projectId,
+            "projectTitle" to finalDonation.projectTitle,
+            "userId" to finalDonation.userId,
+            "amount" to finalDonation.amount,
+            "status" to finalDonation.status,
+            "donatedAt" to finalDonation.donatedAt,
+            // Additional fields needed for app logic
+            "paymentMethod" to finalDonation.paymentMethod.name,
+            "isAnonymous" to finalDonation.isAnonymous
         )
 
         db.runBatch { batch ->
@@ -53,8 +62,7 @@ class DonationRepository {
             batch.set(docRef, donationMap)
 
             // B. Update the Project's Current Amount and Backer count
-            // Note: In a real app, use FieldValue.increment to avoid race conditions
-            val projectDoc = projectsRef.document(finalDonation.project_id)
+            val projectDoc = projectsRef.document(finalDonation.projectId)
             batch.update(projectDoc, "Current_Amount", com.google.firebase.firestore.FieldValue.increment(finalDonation.amount))
             batch.update(projectDoc, "backers", com.google.firebase.firestore.FieldValue.increment(1))
         }.addOnSuccessListener {
@@ -63,28 +71,32 @@ class DonationRepository {
             onError(e)
         }
     }
+
     fun getDonationsByUserId(
         userId: String,
         onSuccess: (List<Donation>) -> Unit,
         onError: (Exception) -> Unit
     ) {
         donationsRef
-            .whereEqualTo("User_ID", userId)
-            .orderBy("Created_at", Query.Direction.DESCENDING) // Latest first
+            .whereEqualTo("userId", userId) // Updated to camelCase
+            .orderBy("donatedAt", Query.Direction.DESCENDING) // Updated to camelCase
             .get()
             .addOnSuccessListener { snapshot ->
                 val donations = snapshot.documents.mapNotNull { doc ->
                     try {
                         Donation(
-                            donation_id = doc.getString("Donation_ID") ?: "",
-                            project_id = doc.getString("Project_ID") ?: "",
-                            user_id = doc.getString("User_ID") ?: "",
-                            amount = doc.getDouble("Amount") ?: 0.0,
+                            id = doc.getString("id") ?: "",
+                            projectId = doc.getString("projectId") ?: "",
+                            projectTitle = doc.getString("projectTitle") ?: "Unknown",
+                            userId = doc.getString("userId") ?: "",
+                            amount = doc.getDouble("amount") ?: 0.0,
+                            status = doc.getString("status") ?: "completed",
                             paymentMethod = try {
-                                Payments.valueOf(doc.getString("Payment_method") ?: "Unset")
+                                // Default to Unset if field is missing or invalid
+                                Payments.valueOf(doc.getString("paymentMethod") ?: "Unset")
                             } catch (e: Exception) { Payments.Unset },
-                            isAnonymous = doc.getBoolean("is_anonymous") ?: false,
-                            created_at = doc.getTimestamp("Created_at") ?: Timestamp.now()
+                            isAnonymous = doc.getBoolean("isAnonymous") ?: false,
+                            donatedAt = doc.getTimestamp("donatedAt") ?: Timestamp.now()
                         )
                     } catch (e: Exception) {
                         null
@@ -96,5 +108,4 @@ class DonationRepository {
                 onError(e)
             }
     }
-
 }
