@@ -358,6 +358,31 @@ class ProjectRepository {
         }
     }
 
+    fun updateProjectWithImage(
+        projectId: String,
+        updates: MutableMap<String, Any>,
+        newImageUri: Uri?,
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        if (newImageUri != null) {
+            // If there's a new image, upload it first
+            val filePath = "project_images/${UUID.randomUUID()}.jpg"
+            storage.child(filePath).putFile(newImageUri)
+                .addOnSuccessListener {
+                    storage.child(filePath).downloadUrl
+                        .addOnSuccessListener { downloadUrl ->
+                            updates["ImageUrl"] = downloadUrl.toString() // Standardized uppercase 'I'
+                            updateProject(projectId, updates, onSuccess, onError)
+                        }
+                        .addOnFailureListener { onError(it) }
+                }
+                .addOnFailureListener { onError(it) }
+        } else {
+            updateProject(projectId, updates, onSuccess, onError)
+        }
+    }
+
     fun updateProject(
         projectId: String,
         updates: Map<String, Any>,

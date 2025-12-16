@@ -50,6 +50,7 @@ import com.example.miniproject.Payment.WalletPage
 import com.example.miniproject.SignUpScreen.SignUpEmailPage
 import com.example.miniproject.SignUpScreen.SignUpProfilePage
 import com.example.miniproject.UserScreen.CreateProjectPage
+import com.example.miniproject.UserScreen.EditProjectPage
 import com.example.miniproject.UserScreen.MainPage
 import com.example.miniproject.UserScreen.MyProjectsPage
 import com.example.miniproject.UserScreen.ProfileScreen.ChangeEmailPage
@@ -143,6 +144,12 @@ fun AppNavigation() {
         }
         composable ("createProject"){
             CreateProjectPage(navController)
+        }
+        composable ("editProject/{projectId}"){
+            EditProjectPage(
+                navController,
+                projectId = it.arguments?.getString("projectId") ?: ""
+            )
         }
 
         composable ("changePw"){
