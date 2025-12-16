@@ -1,5 +1,6 @@
 package com.example.miniproject.Payment
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,28 +21,24 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.example.miniproject.repository.Donation
 import com.example.miniproject.repository.DonationRepository
 import com.example.miniproject.repository.Payments
+import com.example.miniproject.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
-
-// ==========================================
-// WALLET PAYMENT PAGE
-// ==========================================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,20 +47,30 @@ fun WalletPage(
     paymentAmount: Double,
     projectId: String
 ) {
-    // Logic for Balance (remains unchanged)
-    val savedStateHandle = navController.currentBackStackEntry?.savedStateHandle
-    val newBalanceLiveData = savedStateHandle?.getLiveData<Double>("new_balance")
-        ?: androidx.lifecycle.MutableLiveData(0.00)
+    // --- REPOSITORIES ---
+    val userRepo = remember { UserRepository() }
+    val donationRepo = remember { DonationRepository() }
+    val auth = FirebaseAuth.getInstance()
+    val context = LocalContext.current
 
-    val currentBalance by newBalanceLiveData.observeAsState(initial = 0.00)
+    // --- STATE ---
+    // We store the real balance here
+    var currentBalance by remember { mutableStateOf(0.00) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    // --- LISTENER ---
+    // This automatically updates 'currentBalance' whenever Firestore changes
+    DisposableEffect(Unit) {
+        val listener = userRepo.addBalanceListener { newBalance ->
+            currentBalance = newBalance
+        }
+        onDispose {
+            listener?.remove()
+        }
+    }
 
     val isBalanceSufficient = currentBalance >= paymentAmount
 
-    val repository = remember { DonationRepository() }
-    val auth = FirebaseAuth.getInstance()
-    var isLoading by remember { mutableStateOf(false) }
-
-    // UI (Exact same as your provided code)
     Scaffold(
         topBar = {
             TopAppBar(
@@ -75,7 +82,7 @@ fun WalletPage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF2F2F2)) // Light gray background
+                .background(Color(0xFFF2F2F2))
                 .padding(innerPadding)
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -96,25 +103,22 @@ fun WalletPage(
                 }
             }
 
-            // 2. Main Status Card (Changes based on True/False flag)
+            // 2. Main Status Card
             Card(
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(2.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp) // Fixed height to match image look
+                    .height(200.dp)
             ) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "Current Balance:",
-                        fontSize = 16.sp,
-                        color = Color.DarkGray
-                    )
+                    Text(text = "Current Balance:", fontSize = 16.sp, color = Color.DarkGray)
+                    // Display Real Balance
                     Text(
                         text = "RM ${String.format("%.2f", currentBalance)}",
                         fontSize = 18.sp,
@@ -125,7 +129,6 @@ fun WalletPage(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     if (!isBalanceSufficient) {
-                        // SCENARIO: Not Enough Balance
                         Text(
                             text = "Not Enough Balance",
                             fontSize = 18.sp,
@@ -133,12 +136,7 @@ fun WalletPage(
                             color = Color.Red
                         )
                     } else {
-                        // SCENARIO: Sufficient Balance
-                        Text(
-                            text = "Payment total:",
-                            fontSize = 14.sp,
-                            color = Color.Black
-                        )
+                        Text(text = "Payment total:", fontSize = 14.sp, color = Color.Black)
                         Text(
                             text = "RM ${String.format("%.2f", currentBalance)} - RM${String.format("%.2f", paymentAmount)} =",
                             fontSize = 14.sp,
@@ -149,7 +147,7 @@ fun WalletPage(
                             text = "RM ${String.format("%.2f", currentBalance - paymentAmount)}",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Red
+                            color = if(isBalanceSufficient) Color.Black else Color.Red
                         )
                     }
                 }
@@ -158,8 +156,6 @@ fun WalletPage(
             Spacer(modifier = Modifier.weight(1f))
 
             // 3. Action Buttons
-
-            // Cancel Button (Always returns to previous page)
             Button(
                 onClick = { navController.popBackStack() },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD3E6F5)),
@@ -172,10 +168,9 @@ fun WalletPage(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (!isBalanceSufficient) {
-                // Button for Top Up (Navigates to TopUpPage)
                 Button(
                     onClick = {
-                        // Navigate to TopUp, passing 'true' to indicate we came from Payment
+                        // Just navigate to TopUp, listener will handle the update on return
                         navController.navigate("topUpPage/true")
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD3E6F5)),
@@ -185,31 +180,44 @@ fun WalletPage(
                     Text("Top Up Now", color = Color.Black)
                 }
             } else {
-                // Button for Pay Now (Functionless for now)
                 Button(
                     onClick = {
+                        if (isLoading) return@Button
                         isLoading = true
-                        val userId = auth.currentUser?.uid ?: "Anonymous"
 
-                        val newDonation = Donation(
-                            project_id = projectId,
-                            user_id = userId,
+                        // Step 1: Deduct Money from Wallet
+                        userRepo.deductWallet(
                             amount = paymentAmount,
-                            paymentMethod = Payments.Wallet,
-                            isAnonymous = false
-                        )
-
-                        repository.createDonation(
-                            donation = newDonation,
                             onSuccess = {
-                                isLoading = false
-                                // Note: In a real app, deduct wallet balance here too
-                                navController.navigate("paymentSuccess/$paymentAmount/WALLET") {
-                                    popUpTo("projectDetail/$projectId") { inclusive = false }
-                                }
+                                // Step 2: Create Donation Record
+                                val userId = auth.currentUser?.uid ?: "Anonymous"
+                                val newDonation = Donation(
+                                    project_id = projectId,
+                                    user_id = userId,
+                                    amount = paymentAmount,
+                                    paymentMethod = Payments.Wallet,
+                                    isAnonymous = false
+                                )
+
+                                donationRepo.createDonation(
+                                    donation = newDonation,
+                                    onSuccess = {
+                                        isLoading = false
+                                        navController.navigate("paymentSuccess/$paymentAmount/WALLET") {
+                                            popUpTo("projectDetail/$projectId") { inclusive = false }
+                                        }
+                                    },
+                                    onError = {
+                                        // Donation log failed, but money was deducted.
+                                        // In real app, you would refund here.
+                                        isLoading = false
+                                        Toast.makeText(context, "Error creating record", Toast.LENGTH_SHORT).show()
+                                    }
+                                )
                             },
-                            onError = {
+                            onError = { error ->
                                 isLoading = false
+                                Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
                             }
                         )
                     },
@@ -225,12 +233,4 @@ fun WalletPage(
             Spacer(modifier = Modifier.height(30.dp))
         }
     }
-}
-
-// Preview to see the UI
-@Preview(showBackground = true)
-@Composable
-fun WalletPaymentPreview() {
-    val nav = rememberNavController()
-    WalletPage(navController = nav, paymentAmount = 2.00, projectId = "")
 }

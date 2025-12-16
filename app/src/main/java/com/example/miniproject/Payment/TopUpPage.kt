@@ -1,5 +1,6 @@
 package com.example.miniproject.Payment
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,6 +31,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,28 +39,40 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.miniproject.repository.UserRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopUpPage(
     navController: NavController?,
-    isFromPaymentFlow: Boolean = false // Added flag to check purpose
+    isFromPaymentFlow: Boolean = false
 ) {
+    val userRepo = remember { UserRepository() }
+    val context = LocalContext.current
+
     var amount by remember { mutableStateOf("10") }
+    var currentBalance by remember { mutableStateOf(0.00) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    // Listen to real balance for display
+    DisposableEffect(Unit) {
+        val listener = userRepo.addBalanceListener { newBalance ->
+            currentBalance = newBalance
+        }
+        onDispose { listener?.remove() }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(text = "Top Up", fontWeight = FontWeight.SemiBold)
-                },
+                title = { Text(text = "Top Up", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = { navController?.popBackStack() }) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -67,7 +82,6 @@ fun TopUpPage(
             )
         }
     ) { innerPadding ->
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -98,7 +112,11 @@ fun TopUpPage(
                             Spacer(modifier = Modifier.width(8.dp))
                             TextField(
                                 value = amount,
-                                onValueChange = { amount = it },
+                                onValueChange = { newValue ->
+                                    if (newValue.all { it.isDigit() || it == '.' }) {
+                                        amount = newValue
+                                    }
+                                },
                                 textStyle = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = TextFieldDefaults.colors(
@@ -114,7 +132,11 @@ fun TopUpPage(
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text("Current wallet balance: RM 0.00", fontSize = 12.sp, color = Color.Gray)
+                    Text(
+                        text = "Current wallet balance: RM ${String.format("%.2f", currentBalance)}",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -135,33 +157,46 @@ fun TopUpPage(
             Text("Select Payment Method", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(12.dp))
 
-
-            val onPaymentMethodClick = {
+            // Logic to perform the Top Up
+            val performTopUp = {
                 val topUpValue = amount.toDoubleOrNull() ?: 0.00
-                // Logic: 150.00 is just a mock result derived from your image request
-                // In a real app, this adds 'topUpValue' to current balance.
-                val newTotalBalance = 150.00
-
-                if (isFromPaymentFlow) {
-                    navController?.previousBackStackEntry?.savedStateHandle?.set("new_balance", newTotalBalance)
-                    navController?.popBackStack()
+                if (topUpValue > 0) {
+                    isLoading = true
+                    userRepo.topUpWallet(
+                        amount = topUpValue,
+                        onSuccess = {
+                            isLoading = false
+                            Toast.makeText(context, "Top up successful!", Toast.LENGTH_SHORT).show()
+                            // Because we use a listener in WalletPage, simply popping back updates the UI automatically
+                            navController?.popBackStack()
+                        },
+                        onError = {
+                            isLoading = false
+                            Toast.makeText(context, "Top up failed: $it", Toast.LENGTH_SHORT).show()
+                        }
+                    )
                 } else {
+                    Toast.makeText(context, "Invalid amount", Toast.LENGTH_SHORT).show()
                 }
             }
 
-            PaymentMethodButton(
-                text = "TouchNGo E-Wallet",
-                backgroundColor = Color(0xFFE3F2FD),
-                onClick = {onPaymentMethodClick}
-            )
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+            } else {
+                PaymentMethodButton(
+                    text = "TouchNGo E-Wallet",
+                    backgroundColor = Color(0xFFE3F2FD),
+                    onClick = { performTopUp() }
+                )
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-            PaymentMethodButton(
-                text = "Online Banking",
-                backgroundColor = Color(0xFFE3F2FD),
-                onClick = {onPaymentMethodClick}
-            )
+                PaymentMethodButton(
+                    text = "Online Banking",
+                    backgroundColor = Color(0xFFE3F2FD),
+                    onClick = { performTopUp() }
+                )
+            }
         }
     }
 }
@@ -179,10 +214,4 @@ fun PaymentMethodButton(text: String, backgroundColor: Color, onClick: () -> Uni
     ) {
         Text(text = text, fontSize = 16.sp, fontWeight = FontWeight.Medium)
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun TopUpPagePreview() {
-    TopUpPage(null)
 }

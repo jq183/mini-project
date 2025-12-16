@@ -61,6 +61,7 @@ import com.example.miniproject.UserScreen.ProjectAnalyticsPage
 import com.example.miniproject.UserScreen.ProjectDetailPage
 import com.example.miniproject.UserScreen.ReportProjectPage
 import com.example.miniproject.UserScreen.SupportPage
+import com.example.miniproject.UserScreen.TransactionHistoryPage
 import com.example.miniproject.admin.AdminActionsPage
 import com.example.miniproject.admin.AdminLogin
 import com.example.miniproject.admin.ChangePasswordScreen
@@ -317,6 +318,10 @@ fun AppNavigation() {
                 paymentAmount = amountDouble,
                 projectId = projectId
             )
+        }
+
+        composable("historyPage"){
+            TransactionHistoryPage(navController = navController)
         }
 
     }
