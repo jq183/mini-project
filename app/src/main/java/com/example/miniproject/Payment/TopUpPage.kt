@@ -52,30 +52,33 @@ import com.example.miniproject.repository.UserRepository
 @Composable
 fun TopUpPage(
     navController: NavController?,
-    isFromPaymentFlow: Boolean = false
+    isFromPaymentFlow: Boolean = false // Used to customize text if needed
 ) {
-    // Initialize Repository
     val userRepo = remember { UserRepository() }
     val context = LocalContext.current
 
-    // State Variables
     var amount by remember { mutableStateOf("10") }
     var currentBalance by remember { mutableStateOf(0.00) }
     var isLoading by remember { mutableStateOf(false) }
 
-    // REAL-TIME LISTENER: Updates 'currentBalance' whenever Firestore changes
+    // Listener ensures we show the accurate "Current wallet balance" even here
     DisposableEffect(Unit) {
         val listener = userRepo.addBalanceListener { newBalance ->
             currentBalance = newBalance
         }
-        // Cleanup listener when leaving the screen
         onDispose { listener?.remove() }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = "Top Up", fontWeight = FontWeight.SemiBold) },
+                title = {
+                    // Optional: Change title based on where they came from
+                    Text(
+                        text = if (isFromPaymentFlow) "Top Up to Pay" else "Top Up Wallet",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController?.popBackStack() }) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -171,7 +174,10 @@ fun TopUpPage(
                         onSuccess = {
                             isLoading = false
                             Toast.makeText(context, "Top up successful!", Toast.LENGTH_SHORT).show()
-                            // Go back to previous screen (WalletPage or Profile)
+
+                            // CRITICAL: This pops the TopUpPage off the stack.
+                            // If you came from WalletPage, you go back to WalletPage.
+                            // If you came from Profile, you go back to Profile.
                             navController?.popBackStack()
                         },
                         onError = { errorMsg ->
@@ -184,7 +190,6 @@ fun TopUpPage(
                 }
             }
 
-            // --- Payment Buttons or Loading Spinner ---
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
