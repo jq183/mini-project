@@ -31,6 +31,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.miniproject.BottomNavigationBar
+import com.example.miniproject.repository.UserRepository
 import com.example.miniproject.ui.theme.*
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -59,7 +60,9 @@ fun ProfilePage(navController: NavController) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var walletBalance by remember { mutableStateOf(150.50) }
+    val userRepo = remember { UserRepository() }
+
+    var walletBalance by remember { mutableStateOf(0.00) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showLoginDialog by remember { mutableStateOf(false) }
     var isUploadingImage by remember { mutableStateOf(false) }
@@ -91,6 +94,13 @@ fun ProfilePage(navController: NavController) {
     }
 
     val currentRoute = navController.currentBackStackEntry?.destination?.route
+
+    DisposableEffect(Unit) {
+        val listener = userRepo.addBalanceListener { newBalance ->
+            walletBalance = newBalance
+        }
+        onDispose { listener?.remove() }
+    }
 
     Scaffold(
         topBar = {
@@ -256,7 +266,7 @@ fun ProfilePage(navController: NavController) {
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -281,7 +291,7 @@ fun ProfilePage(navController: NavController) {
                                     modifier = Modifier.weight(1f)
                                 )
                                 IconButton(
-                                    onClick = { },
+                                    onClick = { navController.navigate("topUpPage/false")},
                                     modifier = Modifier.size(32.dp)
                                 ) {
                                     Icon(
@@ -326,17 +336,6 @@ fun ProfilePage(navController: NavController) {
                             onClick = { navController.navigate("historyPage")}
                         )
 
-                        HorizontalDivider(
-                            color = BorderGray.copy(alpha = 0.5f),
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-
-                        ProfileMenuItem(
-                            icon = Icons.Default.CreditCard,
-                            title = "Payment Method",
-                            subtitle = "Manage payment options",
-                            onClick = { }
-                        )
                     }
                 }
             }
