@@ -39,19 +39,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.example.miniproject.repository.Donation
 import com.example.miniproject.repository.DonationRepository
 import com.example.miniproject.repository.Payments
+import com.example.miniproject.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
-
-// ==========================================
-// BANK TRANSFER PAGE
-// ==========================================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,19 +59,18 @@ fun OnlinePage(
     var selectedBank by remember { mutableStateOf("") }
     var bankId by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) } // For dropdown menu visibility
+    var expanded by remember { mutableStateOf(false) }
 
-    // List of sample banks for the dropdown
     val bankList = listOf("Maybank", "CIMB Bank", "Public Bank", "RHB Bank", "Hong Leong Bank")
-
-    // Logic to check if the form is valid (all fields are filled)
     val isFormValid = selectedBank.isNotEmpty() && bankId.isNotEmpty() && password.isNotEmpty()
 
-    var isLoading by remember { mutableStateOf(false) } // Add loading state
-    val repository = remember { DonationRepository() }
+    var isLoading by remember { mutableStateOf(false) }
+
+    // Repositories
+    val donationRepo = remember { DonationRepository() }
+    val userRepo = remember { UserRepository() }
     val auth = FirebaseAuth.getInstance()
 
-    // --- UI ---
     Scaffold(
         topBar = {
             TopAppBar(
@@ -93,12 +87,11 @@ fun OnlinePage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF2F2F2)) // Light gray background
+                .background(Color(0xFFF2F2F2))
                 .padding(innerPadding)
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 1. Main Input Form Card
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -106,12 +99,9 @@ fun OnlinePage(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
-                    modifier = Modifier
-                        .padding(20.dp)
-                        .fillMaxWidth(),
+                    modifier = Modifier.padding(20.dp).fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // A. Bank Selection Dropdown
                     Text("Select your bank", fontWeight = FontWeight.Medium)
                     ExposedDropdownMenuBox(
                         expanded = expanded,
@@ -123,27 +113,18 @@ fun OnlinePage(
                             readOnly = true,
                             label = { Text("Bank") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor() // Added menuAnchor for M3 support
+                            modifier = Modifier.fillMaxWidth().menuAnchor()
                         )
-                        ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
+                        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             bankList.forEach { bank ->
                                 DropdownMenuItem(
                                     text = { Text(bank) },
-                                    onClick = {
-                                        selectedBank = bank
-                                        expanded = false
-                                    }
+                                    onClick = { selectedBank = bank; expanded = false }
                                 )
                             }
                         }
                     }
 
-                    // B. Bank ID Text Field
                     Text("Bank ID", fontWeight = FontWeight.Medium)
                     OutlinedTextField(
                         value = bankId,
@@ -153,7 +134,6 @@ fun OnlinePage(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
                     )
 
-                    // C. Password Text Field
                     Text("Password", fontWeight = FontWeight.Medium)
                     OutlinedTextField(
                         value = password,
@@ -168,80 +148,64 @@ fun OnlinePage(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 2. Payment Amount Card
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(2.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                 Box(modifier = Modifier.padding(16.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "Payment : RM ${String.format("%.2f", paymentAmount)}",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Text(text = "Payment : RM ${String.format("%.2f", paymentAmount)}", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 3. Pay Now Button
             Button(
                 onClick = {
                     isLoading = true
-                    val userId = auth.currentUser?.uid ?: "Anonymous"
 
-                    // UPDATED: Matches new Donation Data Class (camelCase)
-                    val newDonation = Donation(
-                        projectId = projectId,
-                        userId = userId,
-                        amount = paymentAmount,
-                        paymentMethod = Payments.OnlineBanking,
-                        isAnonymous = false,
-                        status = "completed"
-                    )
+                    // --- LOGIC SPLIT: IS IT A TOP UP OR A DONATION? ---
+                    if (projectId == "TOPUP") {
+                        // CASE A: Wallet Top Up
+                        userRepo.topUpWallet(
+                            amount = paymentAmount,
+                            onSuccess = {
+                                isLoading = false
+                                // Pop back to origin (Wallet or Profile)
+                                navController.popBackStack("topUpPage", inclusive = true)
+                            },
+                            onError = { isLoading = false }
+                        )
+                    } else {
+                        // CASE B: Project Donation
+                        val userId = auth.currentUser?.uid ?: "Anonymous"
+                        val newDonation = Donation(
+                            projectId = projectId,
+                            userId = userId,
+                            amount = paymentAmount,
+                            paymentMethod = Payments.OnlineBanking,
+                            isAnonymous = false,
+                            status = "completed"
+                        )
 
-                    repository.createDonation(
-                        donation = newDonation,
-                        onSuccess = {
-                            isLoading = false
-                            navController.navigate("paymentSuccess/$paymentAmount/OnlineBanking") {
-                                popUpTo("projectDetail/$projectId") { inclusive = false }
-                            }
-                        },
-                        onError = {
-                            isLoading = false
-                            // Handle error (e.g., show Toast)
-                        }
-                    )
+                        donationRepo.createDonation(
+                            donation = newDonation,
+                            onSuccess = {
+                                isLoading = false
+                                navController.navigate("paymentSuccess/$paymentAmount/OnlineBanking") {
+                                    popUpTo("projectDetail/$projectId") { inclusive = false }
+                                }
+                            },
+                            onError = { isLoading = false }
+                        )
+                    }
                 },
                 enabled = isFormValid && !isLoading,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
+                modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (isFormValid) Color(0xFF1976D2) else Color(0xFFD3E6F5),
-                    contentColor = if (isFormValid) Color.White else Color.Gray,
-                    disabledContainerColor = Color(0xFFD3E6F5),
-                    disabledContentColor = Color.Gray
+                    contentColor = if (isFormValid) Color.White else Color.Gray
                 )
             ) {
-                Text(
-                    text = if(isLoading) "Processing..." else "Pay Now",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Text(text = if (isLoading) "Processing..." else "Pay Now", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
-}
-
-// Preview to see the UI
-@Preview(showBackground = true)
-@Composable
-fun OnlinePagePreview() {
-    val nav = rememberNavController()
-    OnlinePage(navController = nav, paymentAmount = 50.25, projectId = "P123")
 }

@@ -19,7 +19,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,16 +51,15 @@ import com.example.miniproject.repository.UserRepository
 @Composable
 fun TopUpPage(
     navController: NavController?,
-    isFromPaymentFlow: Boolean = false // Used to customize text if needed
+    isFromPaymentFlow: Boolean = false
 ) {
     val userRepo = remember { UserRepository() }
     val context = LocalContext.current
 
     var amount by remember { mutableStateOf("10") }
     var currentBalance by remember { mutableStateOf(0.00) }
-    var isLoading by remember { mutableStateOf(false) }
 
-    // Listener ensures we show the accurate "Current wallet balance" even here
+    // Listener to show current balance
     DisposableEffect(Unit) {
         val listener = userRepo.addBalanceListener { newBalance ->
             currentBalance = newBalance
@@ -72,13 +70,7 @@ fun TopUpPage(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    // Optional: Change title based on where they came from
-                    Text(
-                        text = if (isFromPaymentFlow) "Top Up to Pay" else "Top Up Wallet",
-                        fontWeight = FontWeight.SemiBold
-                    )
-                },
+                title = { Text(text = "Top Up Wallet", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = { navController?.popBackStack() }) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -164,51 +156,32 @@ fun TopUpPage(
             Text("Select Payment Method", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(12.dp))
 
-            // --- Logic to perform the Top Up ---
-            val performTopUp = {
+            // --- NAVIGATION LOGIC ---
+            // Instead of topping up here, we navigate to the payment providers.
+            // We pass "TOPUP" as the projectId so the next page knows this is a wallet top-up.
+            val navigateToPayment = { routeName: String ->
                 val topUpValue = amount.toDoubleOrNull() ?: 0.00
                 if (topUpValue > 0) {
-                    isLoading = true
-                    userRepo.topUpWallet(
-                        amount = topUpValue,
-                        onSuccess = {
-                            isLoading = false
-                            Toast.makeText(context, "Top up successful!", Toast.LENGTH_SHORT).show()
-
-                            // CRITICAL: This pops the TopUpPage off the stack.
-                            // If you came from WalletPage, you go back to WalletPage.
-                            // If you came from Profile, you go back to Profile.
-                            navController?.popBackStack()
-                        },
-                        onError = { errorMsg ->
-                            isLoading = false
-                            Toast.makeText(context, "Top up failed: $errorMsg", Toast.LENGTH_SHORT).show()
-                        }
-                    )
+                    // Navigate to: tngPage/{amount}/TOPUP
+                    navController?.navigate("$routeName/$amount/TOPUP")
                 } else {
                     Toast.makeText(context, "Invalid amount", Toast.LENGTH_SHORT).show()
                 }
             }
 
-            if (isLoading) {
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else {
-                PaymentMethodButton(
-                    text = "TouchNGo E-Wallet",
-                    backgroundColor = Color(0xFFE3F2FD),
-                    onClick = { performTopUp() }
-                )
+            PaymentMethodButton(
+                text = "TouchNGo E-Wallet",
+                backgroundColor = Color(0xFFE3F2FD),
+                onClick = { navigateToPayment("tngPage") }
+            )
 
-                Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-                PaymentMethodButton(
-                    text = "Online Banking",
-                    backgroundColor = Color(0xFFE3F2FD),
-                    onClick = { performTopUp() }
-                )
-            }
+            PaymentMethodButton(
+                text = "Online Banking",
+                backgroundColor = Color(0xFFE3F2FD),
+                onClick = { navigateToPayment("onlineBankingPage") }
+            )
         }
     }
 }
