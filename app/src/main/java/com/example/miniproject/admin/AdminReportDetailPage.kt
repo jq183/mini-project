@@ -667,18 +667,33 @@ fun AdminReportDetailPage(
 
                                     reportResult.fold(
                                         onSuccess = {
-                                            projectRepository.suspendProject(
+                                            // Remove verification first
+                                            projectRepository.unverifyProject(
                                                 projectId = projectId,
                                                 adminId = adminId,
-                                                reportCount = groupedReport?.totalReports ?: 0,
                                                 onSuccess = {
-                                                    isProcessing = false
-                                                    navController.navigateUp()
+                                                    // Then suspend
+                                                    scope.launch {
+                                                        projectRepository.suspendProject(
+                                                            projectId = projectId,
+                                                            adminId = adminId,
+                                                            reportCount = groupedReport?.totalReports ?: 0,
+                                                            onSuccess = {
+                                                                isProcessing = false
+                                                                navController.navigateUp()
+                                                            },
+                                                            onError = { exception ->
+                                                                isProcessing = false
+                                                                errorMessage = exception.message
+                                                                    ?: "Failed to suspend project"
+                                                            }
+                                                        )
+                                                    }
                                                 },
                                                 onError = { exception ->
                                                     isProcessing = false
                                                     errorMessage = exception.message
-                                                        ?: "Failed to suspend project"
+                                                        ?: "Failed to remove verification"
                                                 }
                                             )
                                         },
@@ -705,6 +720,7 @@ fun AdminReportDetailPage(
                                 Text("Yes", fontWeight = FontWeight.Bold)
                             }
                         }
+
                     }
                 }
             )
@@ -738,20 +754,53 @@ fun AdminReportDetailPage(
 
                                 reportResult.fold(
                                     onSuccess = {
-                                        projectRepository.suspendProject(
-                                            projectId = projectId,
-                                            adminId = adminId,
-                                            reportCount = groupedReport?.totalReports ?: 0,
-                                            onSuccess = {
-                                                isProcessing = false
-                                                showConfirmDialog = false
-                                                navController.navigateUp()
-                                            },
-                                            onError = { exception ->
-                                                isProcessing = false
-                                                errorMessage = exception.message ?: "Failed to suspend project"
-                                            }
-                                        )
+                                        // Check if project is verified
+                                        if (projectData?.isOfficial == true) {
+                                            // Remove verification before suspending (for verified projects)
+                                            projectRepository.unverifyProject(
+                                                projectId = projectId,
+                                                adminId = adminId,
+                                                onSuccess = {
+                                                    // After unverification, suspend the project
+                                                    scope.launch {
+                                                        projectRepository.suspendProject(
+                                                            projectId = projectId,
+                                                            adminId = adminId,
+                                                            reportCount = groupedReport?.totalReports ?: 0,
+                                                            onSuccess = {
+                                                                isProcessing = false
+                                                                showConfirmDialog = false
+                                                                navController.navigateUp()
+                                                            },
+                                                            onError = { exception ->
+                                                                isProcessing = false
+                                                                errorMessage = exception.message ?: "Failed to suspend project"
+                                                            }
+                                                        )
+                                                    }
+                                                },
+                                                onError = { exception ->
+                                                    isProcessing = false
+                                                    errorMessage = exception.message ?: "Failed to remove verification"
+                                                }
+                                            )
+                                        } else {
+                                            // Project not verified, just suspend normally
+                                            projectRepository.suspendProject(
+                                                projectId = projectId,
+                                                adminId = adminId,
+                                                reportCount = groupedReport?.totalReports ?: 0,
+                                                onSuccess = {
+                                                    isProcessing = false
+                                                    showConfirmDialog = false
+                                                    navController.navigateUp()
+                                                },
+                                                onError = { exception ->
+                                                    isProcessing = false
+                                                    errorMessage = exception.message ?: "Failed to suspend project"
+                                                }
+                                            )
+                                        }
                                     },
                                     onFailure = { exception ->
                                         isProcessing = false
@@ -759,7 +808,7 @@ fun AdminReportDetailPage(
                                     }
                                 )
                             }
-                            "dismiss" -> {
+                            "dismiss" ->  {
                                 val reportResult = reportRepository.updateAllReportsForProject(
                                     projectId = projectId,
                                     status = "dismissed",
