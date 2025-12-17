@@ -101,7 +101,7 @@ fun TngPage(
                         amount = finalAmount,
                         onSuccess = {
                             // Pop TngPage AND TopUpPage to go back to origin (Wallet or Profile)
-                            navController.popBackStack("topUpPage", inclusive = true)
+                            navController.navigate("profile")
                         },
                         onError = { isSaving = false }
                     )

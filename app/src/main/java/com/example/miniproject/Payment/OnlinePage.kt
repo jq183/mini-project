@@ -168,7 +168,7 @@ fun OnlinePage(
                             onSuccess = {
                                 isLoading = false
                                 // Pop back to origin (Wallet or Profile)
-                                navController.popBackStack("topUpPage", inclusive = true)
+                                navController.navigate("profile")
                             },
                             onError = { isLoading = false }
                         )

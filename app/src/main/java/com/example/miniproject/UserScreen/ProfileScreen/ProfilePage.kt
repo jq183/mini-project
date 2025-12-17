@@ -62,6 +62,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,6 +82,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.miniproject.BottomNavigationBar
+import com.example.miniproject.repository.UserRepository // Added Import
 import com.example.miniproject.ui.theme.BackgroundGray
 import com.example.miniproject.ui.theme.BackgroundWhite
 import com.example.miniproject.ui.theme.BorderGray
@@ -115,7 +117,13 @@ fun ProfilePage(navController: NavController) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // 1. Initialize Repository
+    val userRepo = remember { UserRepository() }
+
+    // 2. State for Balance
     var walletBalance by remember { mutableStateOf(0.0) }
+
+    // ... other states ...
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showLoginDialog by remember { mutableStateOf(false) }
     var isUploadingImage by remember { mutableStateOf(false) }
@@ -124,6 +132,16 @@ fun ProfilePage(navController: NavController) {
     var newDisplayName by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var successMessage by remember { mutableStateOf<String?>(null) }
+
+    // 3. Add Listener to fetch real data
+    DisposableEffect(Unit) {
+        val listener = userRepo.addBalanceListener { balance ->
+            walletBalance = balance
+        }
+        onDispose {
+            listener?.remove()
+        }
+    }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -337,7 +355,7 @@ fun ProfilePage(navController: NavController) {
                                     modifier = Modifier.weight(1f)
                                 )
                                 IconButton(
-                                    onClick = { },
+                                    onClick = { navController.navigate("topUpPage/false")},
                                     modifier = Modifier.size(32.dp)
                                 ) {
                                     Icon(
@@ -352,6 +370,8 @@ fun ProfilePage(navController: NavController) {
                     }
                 }
             }
+
+            // ... (Rest of your code remains exactly the same: General Section, Account Section, etc.)
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
 
@@ -529,6 +549,7 @@ fun ProfilePage(navController: NavController) {
         }
     }
 
+    // ... (Dialogs remain the same) ...
     if (showAvatarSelectionDialog) {
         AlertDialog(
             onDismissRequest = { showAvatarSelectionDialog = false },
