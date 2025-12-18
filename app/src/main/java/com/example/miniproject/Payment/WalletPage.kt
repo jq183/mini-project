@@ -47,19 +47,16 @@ fun WalletPage(
     paymentAmount: Double,
     projectId: String
 ) {
-    // --- REPOSITORIES ---
     val userRepo = remember { UserRepository() }
     val donationRepo = remember { DonationRepository() }
     val auth = FirebaseAuth.getInstance()
     val context = LocalContext.current
 
-    // --- STATE ---
     var currentBalance by remember { mutableStateOf(0.00) }
     var isLoading by remember { mutableStateOf(false) }
 
-    // --- LISTENER ---
-    // Automatically updates 'currentBalance' whenever Firestore changes
-    // This is crucial: if they go to TopUpPage and come back, this updates automatically!
+    // --- REAL-TIME LISTENER ---
+    // this listener fires immediately and updates 'currentBalance' on screen.
     DisposableEffect(Unit) {
         val listener = userRepo.addBalanceListener { newBalance ->
             currentBalance = newBalance
@@ -118,7 +115,7 @@ fun WalletPage(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(text = "Current Balance:", fontSize = 16.sp, color = Color.DarkGray)
-                    // Display Real Balance
+
                     Text(
                         text = "RM ${String.format("%.2f", currentBalance)}",
                         fontSize = 18.sp,
@@ -137,7 +134,6 @@ fun WalletPage(
                         )
                     } else {
                         Text(text = "Payment total:", fontSize = 14.sp, color = Color.Black)
-                        // Show Math: Balance - Amount = Remaining
                         Text(
                             text = "RM ${String.format("%.2f", currentBalance)} - RM ${String.format("%.2f", paymentAmount)} =",
                             fontSize = 14.sp,
@@ -148,7 +144,7 @@ fun WalletPage(
                             text = "RM ${String.format("%.2f", currentBalance - paymentAmount)}",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Black // Remaining balance is positive/zero, so black
+                            color = Color.Black
                         )
                     }
                 }
@@ -169,10 +165,9 @@ fun WalletPage(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (!isBalanceSufficient) {
-                // Not enough money -> Show Top Up button
                 Button(
                     onClick = {
-                        // Navigate to TopUpPage. When user returns, the Listener above updates balance.
+                        // Pass 'true' so TopUpPage knows we are in the middle of a payment
                         navController.navigate("topUpPage/true")
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD3E6F5)),
@@ -182,19 +177,17 @@ fun WalletPage(
                     Text("Top Up Now", color = Color.Black)
                 }
             } else {
-                // Sufficient money -> Show Pay button
                 Button(
                     onClick = {
                         if (isLoading) return@Button
                         isLoading = true
 
-                        // Step 1: Deduct Money from Wallet
+                        // Step 1: Deduct Money
                         userRepo.deductWallet(
                             amount = paymentAmount,
                             onSuccess = {
-                                // Step 2: Create Donation Record
+                                // Step 2: Record Donation
                                 val userId = auth.currentUser?.uid ?: "Anonymous"
-
                                 val newDonation = Donation(
                                     projectId = projectId,
                                     userId = userId,
@@ -208,15 +201,13 @@ fun WalletPage(
                                     donation = newDonation,
                                     onSuccess = {
                                         isLoading = false
-                                        // Navigate to Success Screen
                                         navController.navigate("paymentSuccess/$paymentAmount/WALLET") {
                                             popUpTo("projectDetail/$projectId") { inclusive = false }
                                         }
                                     },
                                     onError = {
-                                        // Critical edge case: Money deducted but log failed.
                                         isLoading = false
-                                        Toast.makeText(context, "Payment processed but record failed. Contact support.", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "Payment processed but record failed.", Toast.LENGTH_LONG).show()
                                     }
                                 )
                             },
