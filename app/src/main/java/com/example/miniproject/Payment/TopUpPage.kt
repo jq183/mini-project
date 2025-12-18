@@ -180,7 +180,7 @@ fun TopUpPage(
             PaymentMethodButton(
                 text = "Online Banking",
                 backgroundColor = Color(0xFFE3F2FD),
-                onClick = { navigateToPayment("onlineBankingPage") }
+                onClick = { navigateToPayment("onlinePage") }
             )
         }
     }
