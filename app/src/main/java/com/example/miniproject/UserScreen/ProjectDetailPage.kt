@@ -130,6 +130,10 @@ fun ProjectDetailPage(
         },
         bottomBar = {
             if (project != null) {
+                // Logic to check if donation is allowed
+                val isGoalReached = project!!.currentAmount >= project!!.goalAmount
+                val canDonate = project!!.status == "active" && !isGoalReached && !project!!.isComplete
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -139,24 +143,28 @@ fun ProjectDetailPage(
                 ) {
                     Button(
                         onClick = {
-                            // ENCODE the image URL to safely pass it through navigation
                             val encodedUrl = if (project!!.ImageUrl.isNotEmpty()) {
                                 Uri.encode(project!!.ImageUrl)
                             } else {
                                 "placeholder"
                             }
-
-                            // Pass ID, Title, and Image URL
                             navController.navigate("supportPage/${project!!.id}/${project!!.title}/$encodedUrl")
                         },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                        // Change color if disabled
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (canDonate) PrimaryBlue else Color.Gray
+                        ),
                         shape = RoundedCornerShape(12.dp),
-                        enabled = !project!!.isComplete
+                        enabled = canDonate
                     ) {
-                        Text("Donate Now", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        Text(
+                            text = if (isGoalReached || project!!.isComplete) "Goal Reached" else "Donate Now",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }
@@ -194,7 +202,9 @@ fun ProjectDetailContent(
     onVerifiedIconClick: () -> Unit,
     navController: NavController
 ) {
-    val progress = (project.currentAmount / project.goalAmount).toFloat().coerceIn(0f, 1f)
+    val current = project.currentAmount.toDouble()
+    val goal = project.goalAmount.toDouble()
+    val progress = (if (goal > 0) current / goal else 0.0).toFloat().coerceIn(0f, 1f)
     val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {

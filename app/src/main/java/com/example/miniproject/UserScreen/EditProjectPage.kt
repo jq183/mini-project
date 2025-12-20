@@ -47,6 +47,8 @@ fun EditProjectPage(
     var currentImageUrl by remember { mutableStateOf("") }
     var newImageUri by remember { mutableStateOf<Uri?>(null) }
 
+    var actualCurrentAmount by remember { mutableDoubleStateOf(0.0) }
+
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
 
@@ -62,6 +64,7 @@ fun EditProjectPage(
                 category = project.category
                 goalAmount = project.goalAmount.toString()
                 currentImageUrl = project.ImageUrl
+                actualCurrentAmount = project.currentAmount
                 isLoading = false
             },
             onError = {
@@ -199,6 +202,17 @@ fun EditProjectPage(
                 // Save Button
                 Button(
                     onClick = {
+                        val newTarget = goalAmount.toDoubleOrNull() ?: 0.0
+
+                        if (newTarget < actualCurrentAmount) {
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    "Target cannot be less than current funding (RM ${String.format("%.2f", actualCurrentAmount)})"
+                                )
+                            }
+                            return@Button
+                        }
+
                         isSaving = true
                         val updates = mutableMapOf<String, Any>(
                             "Description" to description,
