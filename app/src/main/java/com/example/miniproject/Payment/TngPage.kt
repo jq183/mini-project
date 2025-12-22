@@ -46,6 +46,7 @@ import com.example.miniproject.R
 import com.example.miniproject.repository.Donation
 import com.example.miniproject.repository.DonationRepository
 import com.example.miniproject.repository.Payments
+import com.example.miniproject.repository.ProjectRepository
 import com.example.miniproject.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
@@ -67,6 +68,8 @@ fun TngPage(
     val donationRepo = remember { DonationRepository() }
     val userRepo = remember { UserRepository() } // Needed for Top Up
     val auth = FirebaseAuth.getInstance()
+    val projectRepository = ProjectRepository()
+
 
     var isSaving by remember { mutableStateOf(false) }
 
@@ -110,9 +113,16 @@ fun TngPage(
                 donationRepo.createDonation(
                     donation = newDonation,
                     onSuccess = {
-                        navController.navigate("paymentSuccess/$amount/TnG") {
-                            popUpTo("projectDetail/$projectId") { inclusive = false }
-                        }
+                        projectRepository.updateProjectDonation(
+                            projectId = projectId,
+                            donationAmount = finalAmount,
+                            onSuccess = {
+                                navController.navigate("paymentSuccess/$amount/TnG") {
+                                    popUpTo("projectDetail/$projectId") { inclusive = false }
+                                }
+                            },
+                            onError = { isSaving =false }
+                        )
                     },
                     onError = { isSaving = false }
                 )

@@ -37,6 +37,7 @@ import androidx.navigation.NavController
 import com.example.miniproject.repository.Donation
 import com.example.miniproject.repository.DonationRepository
 import com.example.miniproject.repository.Payments
+import com.example.miniproject.repository.ProjectRepository
 import com.example.miniproject.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 
@@ -51,6 +52,7 @@ fun WalletPage(
     val donationRepo = remember { DonationRepository() }
     val auth = FirebaseAuth.getInstance()
     val context = LocalContext.current
+    val projectRepository = ProjectRepository()
 
     var currentBalance by remember { mutableStateOf(0.00) }
     var isLoading by remember { mutableStateOf(false) }
@@ -200,10 +202,19 @@ fun WalletPage(
                                 donationRepo.createDonation(
                                     donation = newDonation,
                                     onSuccess = {
-                                        isLoading = false
-                                        navController.navigate("paymentSuccess/$paymentAmount/WALLET") {
-                                            popUpTo("projectDetail/$projectId") { inclusive = false }
-                                        }
+                                        projectRepository.updateProjectDonation(
+                                            projectId = projectId,
+                                            donationAmount = paymentAmount,
+                                            onSuccess = {
+                                                navController.navigate("paymentSuccess/$paymentAmount/TnG") {
+                                                    popUpTo("projectDetail/$projectId") { inclusive = false }
+                                                }
+                                            },
+                                            onError = {
+                                                isLoading =false
+                                                Toast.makeText(context, "Payment processed but record failed.", Toast.LENGTH_LONG).show()
+                                            }
+                                        )
                                     },
                                     onError = {
                                         isLoading = false

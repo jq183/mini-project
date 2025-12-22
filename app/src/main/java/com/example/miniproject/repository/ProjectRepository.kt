@@ -7,7 +7,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
@@ -395,4 +394,33 @@ class ProjectRepository {
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener(onError)
     }
+
+    fun updateProjectDonation(
+        projectId: String,
+        donationAmount: Double,
+        onSuccess: () -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        val projectRef = projectsRef.document(projectId)
+
+        db.runTransaction { transaction ->
+            val snapshot = transaction.get(projectRef)
+
+            val currentAmount = snapshot.getDouble("Current_Amount") ?: 0.0
+            val backers = snapshot.getLong("backers") ?: 0L
+
+            transaction.update(
+                projectRef,
+                mapOf(
+                    "Current_Amount" to currentAmount + donationAmount,
+                    "backers" to backers + 1
+                )
+            )
+        }.addOnSuccessListener {
+            onSuccess()
+        }.addOnFailureListener {
+            onError(it)
+        }
+    }
 }
+

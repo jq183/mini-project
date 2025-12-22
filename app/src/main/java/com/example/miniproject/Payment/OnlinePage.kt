@@ -45,6 +45,7 @@ import androidx.navigation.NavController
 import com.example.miniproject.repository.Donation
 import com.example.miniproject.repository.DonationRepository
 import com.example.miniproject.repository.Payments
+import com.example.miniproject.repository.ProjectRepository
 import com.example.miniproject.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 
@@ -70,6 +71,8 @@ fun OnlinePage(
     val donationRepo = remember { DonationRepository() }
     val userRepo = remember { UserRepository() }
     val auth = FirebaseAuth.getInstance()
+    val projectRepository = ProjectRepository()
+
 
     Scaffold(
         topBar = {
@@ -126,13 +129,26 @@ fun OnlinePage(
                     }
 
                     Text("Bank ID", fontWeight = FontWeight.Medium)
+
                     OutlinedTextField(
                         value = bankId,
-                        onValueChange = { bankId = it },
+                        onValueChange = { input ->
+                            // Remove spaces and keep only digits
+                            val digits = input.filter { it.isDigit() }
+
+                            // Limit to 16 digits
+                            if (digits.length <= 16) {
+                                // Auto-format: group by 4 digits
+                                bankId = digits
+                                    .chunked(4)
+                                    .joinToString(" ")
+                            }
+                        },
                         label = { Text("Bank ID") },
                         modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
+
 
                     Text("Password", fontWeight = FontWeight.Medium)
                     OutlinedTextField(
@@ -160,41 +176,35 @@ fun OnlinePage(
                 onClick = {
                     isLoading = true
 
-                    // --- LOGIC SPLIT: IS IT A TOP UP OR A DONATION? ---
-                    if (projectId == "TOPUP") {
-                        // CASE A: Wallet Top Up
-                        userRepo.topUpWallet(
-                            amount = paymentAmount,
-                            onSuccess = {
-                                isLoading = false
-                                // Pop back to origin (Wallet or Profile)
-                                navController.navigate("profile")
-                            },
-                            onError = { isLoading = false }
-                        )
-                    } else {
-                        // CASE B: Project Donation
-                        val userId = auth.currentUser?.uid ?: "Anonymous"
-                        val newDonation = Donation(
-                            projectId = projectId,
-                            userId = userId,
-                            amount = paymentAmount,
-                            paymentMethod = Payments.OnlineBanking,
-                            isAnonymous = false,
-                            status = "completed"
-                        )
+                    val userId = auth.currentUser?.uid ?: "Anonymous"
+                    val newDonation = Donation(
+                        projectId = projectId,
+                        userId = userId,
+                        amount = paymentAmount,
+                        paymentMethod = Payments.OnlineBanking,
+                        isAnonymous = false,
+                        status = "completed"
+                    )
 
-                        donationRepo.createDonation(
-                            donation = newDonation,
-                            onSuccess = {
-                                isLoading = false
-                                navController.navigate("paymentSuccess/$paymentAmount/OnlineBanking") {
-                                    popUpTo("projectDetail/$projectId") { inclusive = false }
+                    donationRepo.createDonation(
+                        donation = newDonation,
+                        onSuccess = {
+                            projectRepository.updateProjectDonation(
+                                projectId = projectId,
+                                donationAmount = paymentAmount,
+                                onSuccess = {
+                                    navController.navigate("paymentSuccess/$paymentAmount/TnG") {
+                                        popUpTo("projectDetail/$projectId") { inclusive = false }
+                                    }
+                                },
+                                onError = {
+                                    isLoading = false
                                 }
-                            },
-                            onError = { isLoading = false }
-                        )
-                    }
+                            )
+                        },
+                        onError = { isLoading = false }
+                    )
+
                 },
                 enabled = isFormValid && !isLoading,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
