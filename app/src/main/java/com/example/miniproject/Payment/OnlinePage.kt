@@ -73,7 +73,6 @@ fun OnlinePage(
     val auth = FirebaseAuth.getInstance()
     val projectRepository = ProjectRepository()
 
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -176,35 +175,47 @@ fun OnlinePage(
                 onClick = {
                     isLoading = true
 
-                    val userId = auth.currentUser?.uid ?: "Anonymous"
-                    val newDonation = Donation(
-                        projectId = projectId,
-                        userId = userId,
-                        amount = paymentAmount,
-                        paymentMethod = Payments.OnlineBanking,
-                        isAnonymous = false,
-                        status = "completed"
-                    )
+                    // --- LOGIC SPLIT: IS IT A TOP UP OR A DONATION? ---
+                    if (projectId == "TOPUP") {
+                        // CASE A: Wallet Top Up
+                        userRepo.topUpWallet(
+                            amount = paymentAmount,
+                            onSuccess = {
+                                isLoading = false
+                                // Pop back to origin (Wallet or Profile)
+                                navController.navigate("profile")
+                            },
+                            onError = { isLoading = false }
+                        )
+                    } else {
+                        // CASE B: Project Donation
+                        val userId = auth.currentUser?.uid ?: "Anonymous"
+                        val newDonation = Donation(
+                            projectId = projectId,
+                            userId = userId,
+                            amount = paymentAmount,
+                            paymentMethod = Payments.OnlineBanking,
+                            isAnonymous = false,
+                            status = "completed"
+                        )
 
-                    donationRepo.createDonation(
-                        donation = newDonation,
-                        onSuccess = {
-                            projectRepository.updateProjectDonation(
-                                projectId = projectId,
-                                donationAmount = paymentAmount,
-                                onSuccess = {
-                                    navController.navigate("paymentSuccess/$paymentAmount/TnG") {
-                                        popUpTo("projectDetail/$projectId") { inclusive = false }
-                                    }
-                                },
-                                onError = {
-                                    isLoading = false
-                                }
-                            )
-                        },
-                        onError = { isLoading = false }
-                    )
-
+                        donationRepo.createDonation(
+                            donation = newDonation,
+                            onSuccess = {
+                                projectRepository.updateProjectDonation(
+                                    projectId = projectId,
+                                    donationAmount = paymentAmount,
+                                    onSuccess = {
+                                        navController.navigate("paymentSuccess/$paymentAmount/TnG") {
+                                            popUpTo("projectDetail/$projectId") { inclusive = false }
+                                        }
+                                    },
+                                    onError = { isLoading =false }
+                                )
+                            },
+                            onError = { isLoading = false }
+                        )
+                    }
                 },
                 enabled = isFormValid && !isLoading,
                 modifier = Modifier.fillMaxWidth().height(50.dp),

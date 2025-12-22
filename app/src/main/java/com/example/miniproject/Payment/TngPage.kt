@@ -100,32 +100,47 @@ fun TngPage(
 
                 val finalAmount = amount.toDoubleOrNull() ?: 0.0
 
-                val userId = auth.currentUser?.uid ?: "Anonymous"
-                val newDonation = Donation(
+                // --- LOGIC SPLIT: IS IT A TOP UP OR A DONATION? ---
+                if (projectId == "TOPUP") {
+                    // CASE A: Wallet Top Up
+                    userRepo.topUpWallet(
+                        amount = finalAmount,
+                        onSuccess = {
+                            isSaving = false
+                            // Pop back to origin (Wallet or Profile)
+                            navController.navigate("profile")
+                        },
+                        onError = { isSaving = false }
+                    )
+                } else {
+                    val userId = auth.currentUser?.uid ?: "Anonymous"
+
+                    val newDonation = Donation(
                         projectId = projectId,
                         userId = userId,
                         amount = finalAmount,
                         paymentMethod = Payments.TnG,
                         isAnonymous = false,
                         status = "completed"
-                )
+                    )
 
-                donationRepo.createDonation(
-                    donation = newDonation,
-                    onSuccess = {
-                        projectRepository.updateProjectDonation(
-                            projectId = projectId,
-                            donationAmount = finalAmount,
-                            onSuccess = {
-                                navController.navigate("paymentSuccess/$amount/TnG") {
-                                    popUpTo("projectDetail/$projectId") { inclusive = false }
-                                }
-                            },
-                            onError = { isSaving =false }
-                        )
-                    },
-                    onError = { isSaving = false }
-                )
+                    donationRepo.createDonation(
+                        donation = newDonation,
+                        onSuccess = {
+                            projectRepository.updateProjectDonation(
+                                projectId = projectId,
+                                donationAmount = finalAmount,
+                                onSuccess = {
+                                    navController.navigate("paymentSuccess/$amount/TnG") {
+                                        popUpTo("projectDetail/$projectId") { inclusive = false }
+                                    }
+                                },
+                                onError = { isSaving = false }
+                            )
+                        },
+                        onError = { isSaving = false }
+                    )
+                }
             }
         }
     }
