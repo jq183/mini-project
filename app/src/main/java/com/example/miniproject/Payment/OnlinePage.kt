@@ -206,6 +206,7 @@ fun OnlinePage(
                                     projectId = projectId,
                                     donationAmount = paymentAmount,
                                     onSuccess = {
+                                        isLoading = false
                                         navController.navigate("paymentSuccess/$paymentAmount/TnG") {
                                             popUpTo("projectDetail/$projectId") { inclusive = false }
                                         }

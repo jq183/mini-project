@@ -127,16 +127,9 @@ fun TngPage(
                     donationRepo.createDonation(
                         donation = newDonation,
                         onSuccess = {
-                            projectRepository.updateProjectDonation(
-                                projectId = projectId,
-                                donationAmount = finalAmount,
-                                onSuccess = {
-                                    navController.navigate("paymentSuccess/$amount/TnG") {
-                                        popUpTo("projectDetail/$projectId") { inclusive = false }
-                                    }
-                                },
-                                onError = { isSaving = false }
-                            )
+                            navController.navigate("paymentSuccess/$amount/TnG") {
+                                popUpTo("projectDetail/$projectId") { inclusive = false }
+                            }
                         },
                         onError = { isSaving = false }
                     )

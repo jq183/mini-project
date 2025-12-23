@@ -214,19 +214,10 @@ fun WalletPage(
                                     donationRepo.createDonation(
                                         donation = newDonation,
                                         onSuccess = {
-                                            projectRepository.updateProjectDonation(
-                                                projectId = projectId,
-                                                donationAmount = paymentAmount,
-                                                onSuccess = {
-                                                    navController.navigate("paymentSuccess/$paymentAmount/TnG") {
-                                                        popUpTo("projectDetail/$projectId") { inclusive = false }
-                                                    }
-                                                },
-                                                onError = {
-                                                    isLoading =false
-                                                    Toast.makeText(context, "Payment processed but record failed.", Toast.LENGTH_LONG).show()
-                                                }
-                                            )
+                                            isLoading = false
+                                            navController.navigate("paymentSuccess/$paymentAmount/TnG") {
+                                                popUpTo("projectDetail/$projectId") { inclusive = false }
+                                            }
                                         },
                                         onError = {
                                             isLoading = false
