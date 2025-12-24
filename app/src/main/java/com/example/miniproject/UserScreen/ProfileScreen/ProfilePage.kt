@@ -153,7 +153,7 @@ fun ProfilePage(navController: NavController) {
 
     val currentRoute = navController.currentBackStackEntry?.destination?.route
 
-    0DisposableEffect(Unit) {
+    DisposableEffect(Unit) {
         val listener = userRepo.addBalanceListener { newBalance ->
             walletBalance = newBalance
         }
