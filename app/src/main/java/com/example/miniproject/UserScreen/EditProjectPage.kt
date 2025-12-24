@@ -47,10 +47,16 @@ fun EditProjectPage(
     var currentImageUrl by remember { mutableStateOf("") }
     var newImageUri by remember { mutableStateOf<Uri?>(null) }
 
+    var actualCurrentAmount by remember { mutableDoubleStateOf(0.0) }
+
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
 
     val categories = listOf("Technology", "Charity", "Education", "Medical", "Art", "Games")
+
+    val isFormValid = description.isNotBlank() &&
+            category.isNotBlank() &&
+            goalAmount.isNotBlank()
 
     // Fetch initial data
     LaunchedEffect(projectId) {
@@ -62,6 +68,7 @@ fun EditProjectPage(
                 category = project.category
                 goalAmount = project.goalAmount.toString()
                 currentImageUrl = project.ImageUrl
+                actualCurrentAmount = project.currentAmount
                 isLoading = false
             },
             onError = {
@@ -196,14 +203,49 @@ fun EditProjectPage(
 
                 Spacer(Modifier.height(24.dp))
 
+                if (!isFormValid && !isLoading) {
+                    Text(
+                        text = "Please fill all fields",
+                        color = ErrorRed,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
                 // Save Button
                 Button(
                     onClick = {
+                        if (!isFormValid) {
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Please fill all fields")
+                            }
+                            return@Button
+                        }
+
+                        val newTarget = goalAmount.toDoubleOrNull() ?: 0.0
+
+                        if (newTarget < actualCurrentAmount) {
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    "Target cannot be less than current funding (RM ${String.format("%.2f", actualCurrentAmount)})"
+                                )
+                            }
+                            return@Button
+                        }
+
                         isSaving = true
+                        val (newStatus, isNowComplete) = if (newTarget > actualCurrentAmount) {
+                            "active" to false
+                        } else {
+                            "complete" to true
+                        }
+
                         val updates = mutableMapOf<String, Any>(
                             "Description" to description,
                             "Category" to category,
-                            "Target_Amount" to (goalAmount.toDoubleOrNull() ?: 0.0)
+                            "Target_Amount" to newTarget,
+                            "Status" to newStatus,        // Add this
+                            "isComplete" to isNowComplete // Add this
                         )
 
                         repository.updateProjectWithImage(
@@ -221,8 +263,10 @@ fun EditProjectPage(
                         )
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
-                    enabled = !isSaving,
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    enabled = isFormValid && !isSaving,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isFormValid) PrimaryBlue else Color.Gray
+                    )
                 ) {
                     if (isSaving) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                     else Text("Save Changes")

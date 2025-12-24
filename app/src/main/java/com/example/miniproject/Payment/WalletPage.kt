@@ -37,6 +37,7 @@ import androidx.navigation.NavController
 import com.example.miniproject.repository.Donation
 import com.example.miniproject.repository.DonationRepository
 import com.example.miniproject.repository.Payments
+import com.example.miniproject.repository.ProjectRepository
 import com.example.miniproject.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 
@@ -51,6 +52,7 @@ fun WalletPage(
     val donationRepo = remember { DonationRepository() }
     val auth = FirebaseAuth.getInstance()
     val context = LocalContext.current
+    val projectRepository = ProjectRepository()
 
     var currentBalance by remember { mutableStateOf(0.00) }
     var isLoading by remember { mutableStateOf(false) }
@@ -183,39 +185,52 @@ fun WalletPage(
                         isLoading = true
 
                         // Step 1: Deduct Money
-                        userRepo.deductWallet(
-                            amount = paymentAmount,
-                            onSuccess = {
-                                // Step 2: Record Donation
-                                val userId = auth.currentUser?.uid ?: "Anonymous"
-                                val newDonation = Donation(
-                                    projectId = projectId,
-                                    userId = userId,
-                                    amount = paymentAmount,
-                                    paymentMethod = Payments.Wallet,
-                                    isAnonymous = false,
-                                    status = "completed"
-                                )
+                        if (projectId == "TOPUP") {
+                            // CASE A: Wallet Top Up
+                            userRepo.topUpWallet(
+                                amount = paymentAmount,
+                                onSuccess = {
+                                    isLoading = false
+                                    // Pop back to origin (Wallet or Profile)
+                                    navController.navigate("profile")
+                                },
+                                onError = { isLoading = false }
+                            )
+                        } else {
+                            userRepo.deductWallet(
+                                amount = paymentAmount,
+                                onSuccess = {
+                                    // Step 2: Record Donation
+                                    val userId = auth.currentUser?.uid ?: "Anonymous"
+                                    val newDonation = Donation(
+                                        projectId = projectId,
+                                        userId = userId,
+                                        amount = paymentAmount,
+                                        paymentMethod = Payments.Wallet,
+                                        isAnonymous = false,
+                                        status = "completed"
+                                    )
 
-                                donationRepo.createDonation(
-                                    donation = newDonation,
-                                    onSuccess = {
-                                        isLoading = false
-                                        navController.navigate("paymentSuccess/$paymentAmount/WALLET") {
-                                            popUpTo("projectDetail/$projectId") { inclusive = false }
+                                    donationRepo.createDonation(
+                                        donation = newDonation,
+                                        onSuccess = {
+                                            isLoading = false
+                                            navController.navigate("paymentSuccess/$paymentAmount/Wallet") {
+                                                popUpTo("projectDetail/$projectId") { inclusive = false }
+                                            }
+                                        },
+                                        onError = {
+                                            isLoading = false
+                                            Toast.makeText(context, "Payment processed but record failed.", Toast.LENGTH_LONG).show()
                                         }
-                                    },
-                                    onError = {
-                                        isLoading = false
-                                        Toast.makeText(context, "Payment processed but record failed.", Toast.LENGTH_LONG).show()
-                                    }
-                                )
-                            },
-                            onError = { error ->
-                                isLoading = false
-                                Toast.makeText(context, "Payment Failed: $error", Toast.LENGTH_SHORT).show()
-                            }
-                        )
+                                    )
+                                },
+                                onError = { error ->
+                                    isLoading = false
+                                    Toast.makeText(context, "Payment Failed: $error", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD3E6F5)),
                     shape = RoundedCornerShape(12.dp),

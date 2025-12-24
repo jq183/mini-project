@@ -1,5 +1,6 @@
 package com.example.miniproject.Payment
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,14 +36,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.miniproject.R
 import com.example.miniproject.repository.Donation
 import com.example.miniproject.repository.DonationRepository
 import com.example.miniproject.repository.Payments
+import com.example.miniproject.repository.ProjectRepository
 import com.example.miniproject.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
@@ -64,6 +68,8 @@ fun TngPage(
     val donationRepo = remember { DonationRepository() }
     val userRepo = remember { UserRepository() } // Needed for Top Up
     val auth = FirebaseAuth.getInstance()
+    val projectRepository = ProjectRepository()
+
 
     var isSaving by remember { mutableStateOf(false) }
 
@@ -100,14 +106,15 @@ fun TngPage(
                     userRepo.topUpWallet(
                         amount = finalAmount,
                         onSuccess = {
-                            // Pop TngPage AND TopUpPage to go back to origin (Wallet or Profile)
+                            isSaving = false
+                            // Pop back to origin (Wallet or Profile)
                             navController.navigate("profile")
                         },
                         onError = { isSaving = false }
                     )
                 } else {
-                    // CASE B: Project Donation
                     val userId = auth.currentUser?.uid ?: "Anonymous"
+
                     val newDonation = Donation(
                         projectId = projectId,
                         userId = userId,
@@ -159,7 +166,7 @@ fun TngPage(
                     if (qrPayload == null) {
                         CircularProgressIndicator(modifier = Modifier.size(50.dp), color = Color(0xFF0054A6))
                     } else {
-                        FakeQrCode(payload = qrPayload ?: "") { FakeTngGateway.simulateUserScanningQr() }
+                        FakeQrCode() { FakeTngGateway.simulateUserScanningQr() }
                     }
                     Spacer(modifier = Modifier.height(20.dp))
                     Text(
@@ -193,19 +200,27 @@ fun TngPage(
 
 // ... FakeQrCode and FakeTngGateway remain identical ...
 @Composable
-fun FakeQrCode(payload: String, onSimulateScan: () -> Unit) {
+fun FakeQrCode(onSimulateScan: () -> Unit) {
     Box(
-        modifier = Modifier.size(220.dp).background(Color.White, RoundedCornerShape(8.dp)).border(4.dp, Color.Black, RoundedCornerShape(8.dp)).clickable { onSimulateScan() },
+        modifier = Modifier
+            .size(220.dp)
+            .background(Color.White, RoundedCornerShape(8.dp))
+            .border(4.dp, Color.Black, RoundedCornerShape(8.dp))
+            .clickable { onSimulateScan() },
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(modifier = Modifier.size(140.dp).background(Color.Black).padding(4.dp)) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.White))
-                Text(text = ":: $payload ::", modifier = Modifier.align(Alignment.Center), fontSize = 8.sp, color = Color.Black)
-            }
+            Image(
+                painter = painterResource(id = R.drawable.qr),
+                contentDescription = "QR Code",
+                modifier = Modifier
+                    .size(140.dp)
+                    .background(Color.White)
+            )
         }
     }
 }
+
 
 object FakeTngGateway {
     enum class PaymentStatus { PENDING, PAID, EXPIRED }

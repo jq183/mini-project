@@ -45,6 +45,7 @@ import androidx.navigation.NavController
 import com.example.miniproject.repository.Donation
 import com.example.miniproject.repository.DonationRepository
 import com.example.miniproject.repository.Payments
+import com.example.miniproject.repository.ProjectRepository
 import com.example.miniproject.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 
@@ -70,6 +71,7 @@ fun OnlinePage(
     val donationRepo = remember { DonationRepository() }
     val userRepo = remember { UserRepository() }
     val auth = FirebaseAuth.getInstance()
+    val projectRepository = ProjectRepository()
 
     Scaffold(
         topBar = {
@@ -126,13 +128,26 @@ fun OnlinePage(
                     }
 
                     Text("Bank ID", fontWeight = FontWeight.Medium)
+
                     OutlinedTextField(
                         value = bankId,
-                        onValueChange = { bankId = it },
+                        onValueChange = { input ->
+                            // Remove spaces and keep only digits
+                            val digits = input.filter { it.isDigit() }
+
+                            // Limit to 16 digits
+                            if (digits.length <= 16) {
+                                // Auto-format: group by 4 digits
+                                bankId = digits
+                                    .chunked(4)
+                                    .joinToString(" ")
+                            }
+                        },
                         label = { Text("Bank ID") },
                         modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
+
 
                     Text("Password", fontWeight = FontWeight.Medium)
                     OutlinedTextField(
