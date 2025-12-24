@@ -202,17 +202,10 @@ fun OnlinePage(
                         donationRepo.createDonation(
                             donation = newDonation,
                             onSuccess = {
-                                projectRepository.updateProjectDonation(
-                                    projectId = projectId,
-                                    donationAmount = paymentAmount,
-                                    onSuccess = {
-                                        isLoading = false
-                                        navController.navigate("paymentSuccess/$paymentAmount/TnG") {
-                                            popUpTo("projectDetail/$projectId") { inclusive = false }
-                                        }
-                                    },
-                                    onError = { isLoading =false }
-                                )
+                                isLoading = false
+                                navController.navigate("paymentSuccess/$paymentAmount/OnlineBanking") {
+                                    popUpTo("projectDetail/$projectId") { inclusive = false }
+                                }
                             },
                             onError = { isLoading = false }
                         )

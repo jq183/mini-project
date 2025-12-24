@@ -215,7 +215,7 @@ fun WalletPage(
                                         donation = newDonation,
                                         onSuccess = {
                                             isLoading = false
-                                            navController.navigate("paymentSuccess/$paymentAmount/TnG") {
+                                            navController.navigate("paymentSuccess/$paymentAmount/Wallet") {
                                                 popUpTo("projectDetail/$projectId") { inclusive = false }
                                             }
                                         },
